@@ -24,8 +24,8 @@
 	"contributes": {
 		"commands": [
 			{
-				"command": "deep-insight.ask",
-				"title": "Deep Insight: Ask AI (Select Files)"
+				"command": "deep-insight.composite",
+				"title": "Deep Insight: Ask AI (Composite Mode - Multiple Files)"
 			},
 			{
 				"command": "deep-insight.askCurrent",

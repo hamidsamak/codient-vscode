@@ -4,8 +4,8 @@ const path = require('path');
 
 function activate(context) {
 
-    // Command 1: Ask AI about file(s)
-    context.subscriptions.push(vscode.commands.registerCommand('deep-insight.ask', async () => {
+    // Command 1: Ask AI about multiple files (composite mode)
+    context.subscriptions.push(vscode.commands.registerCommand('deep-insight.composite', async () => {
 
         // Get workspace folder
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -22,11 +22,11 @@ function activate(context) {
             return;
         }
 
-        // Step 1: Select files
+        // Step 1: Select main files to process
         const selectedFiles = await vscode.window.showQuickPick(allFiles, {
             canPickMany: true,
-            placeHolder: 'Select file(s) to process (use space to select multiple)',
-            title: 'Choose Files for AI Analysis'
+            placeHolder: 'Select main file(s) to process (use space to select multiple)',
+            title: 'Choose Main Files for AI Analysis'
         });
 
         if (!selectedFiles || selectedFiles.length === 0) {
@@ -34,56 +34,69 @@ function activate(context) {
             return;
         }
 
-        // Step 2: Get question
+        // Step 2: Get question (with validation)
         const question = await vscode.window.showInputBox({
             prompt: 'What would you like the AI to do?',
             placeHolder: 'Add error handling, refactor code, optimize performance...',
             validateInput: (value) => {
                 if (!value || value.trim() === '') {
-                    return 'Please enter a question';
+                    return 'Question cannot be empty! Please enter a valid question.';
                 }
                 return null;
             }
         });
 
-        if (!question) return;
+        if (!question || question.trim() === '') {
+            vscode.window.showWarningMessage('Operation cancelled: No question provided.');
+            return;
+        }
 
-        // Step 3: Ask about context file (optional)
-        let contextFile = null;
+        // Step 3: Ask about context files (multiple, optional, default Yes)
+        let contextFiles = [];
         const wantContext = await vscode.window.showQuickPick(['Yes', 'No'], {
-            placeHolder: 'Do you want to provide a context file?',
-            title: 'Context File'
+            placeHolder: 'Do you want to provide context file(s)?',
+            title: 'Context Files'
         });
 
         if (wantContext === 'Yes') {
             const allFilesForContext = await findCodeFiles(workspaceFolder.uri.fsPath);
-            contextFile = await vscode.window.showQuickPick(allFilesForContext, {
-                placeHolder: 'Select context file (for reference)',
-                title: 'Choose Context File'
+            contextFiles = await vscode.window.showQuickPick(allFilesForContext, {
+                canPickMany: true,
+                placeHolder: 'Select context file(s) (for reference) - use space to select multiple',
+                title: 'Choose Context Files'
             });
+            
+            if (!contextFiles || contextFiles.length === 0) {
+                vscode.window.showWarningMessage('No context files selected. Continuing without context...');
+                contextFiles = [];
+            }
         }
 
-        // Step 4: Ask about overwrite (optional)
-        const overwrite = await vscode.window.showQuickPick(['No', 'Yes'], {
+        // Step 4: Ask about overwrite (default Yes)
+        const overwrite = await vscode.window.showQuickPick(['Yes', 'No'], {
             placeHolder: 'Overwrite the selected file(s)?',
             title: 'Overwrite Mode'
         });
 
-        // Step 5: Build command
+        // Step 5: Build command with correct order
         const workspacePath = workspaceFolder.uri.fsPath;
-        let command = `deep-insight "${question}"`;
+        let command = `deep-insight "${question.trim()}"`;
 
-        // Add context if selected
-        if (contextFile && contextFile !== 'No') {
-            command += ` --context "${path.join(workspacePath, contextFile)}"`;
-        }
-
-        // Add overwrite if selected
+        // Add overwrite FIRST (if selected)
         if (overwrite === 'Yes') {
             command += ' --overwrite';
         }
 
-        // Add all selected files at the end
+        // Add context files SECOND (if any)
+        if (contextFiles.length > 0) {
+            const contextPaths = contextFiles.map(f => `"${path.join(workspacePath, f)}"`).join(' ');
+            command += ` --context ${contextPaths}`;
+        }
+
+        // Add -- separator
+        command += ' --';
+
+        // Add all selected main files at the end
         const filePaths = selectedFiles.map(f => `"${path.join(workspacePath, f)}"`).join(' ');
         command += ` ${filePaths}`;
 
@@ -94,7 +107,8 @@ function activate(context) {
 
         // Show confirmation message
         const fileCount = selectedFiles.length;
-        vscode.window.showInformationMessage(`🤖 Sending ${fileCount} file(s) to AI...`);
+        const contextCount = contextFiles.length;
+        vscode.window.showInformationMessage(`🤖 Sending ${fileCount} main file(s) with ${contextCount} context file(s) to AI...`);
     }));
 
     // Command 2: Open Browser Session
@@ -105,7 +119,7 @@ function activate(context) {
         vscode.window.showInformationMessage('🌐 Browser opened. Login and close when done.');
     }));
 
-    // Command 3: Ask AI about current file
+    // Command 3: Ask AI about current file (simplified)
     context.subscriptions.push(vscode.commands.registerCommand('deep-insight.askCurrent', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -113,57 +127,38 @@ function activate(context) {
             return;
         }
 
-        // Step 1: Get the user's request
+        // Step 1: Get question (with validation)
         const question = await vscode.window.showInputBox({
             prompt: 'What would you like the AI to do?',
             placeHolder: 'Fix this code, add comments, optimize performance...',
             validateInput: (value) => {
                 if (!value || value.trim() === '') {
-                    return 'Please enter a question';
+                    return 'Question cannot be empty! Please enter a valid question.';
                 }
                 return null;
             }
         });
-        if (!question) return;
 
-        // Step 2: Ask about context file (optional)
-        let contextFile = null;
-        const wantContext = await vscode.window.showQuickPick(['Yes', 'No'], {
-            placeHolder: 'Do you want to provide a context file?',
-            title: 'Context File'
-        });
-
-        if (wantContext === 'Yes') {
-            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-            if (workspaceFolder) {
-                const allFiles = await findCodeFiles(workspaceFolder.uri.fsPath);
-                contextFile = await vscode.window.showQuickPick(allFiles, {
-                    placeHolder: 'Select context file (for reference)',
-                    title: 'Choose Context File'
-                });
-            }
+        if (!question || question.trim() === '') {
+            vscode.window.showWarningMessage('Operation cancelled: No question provided.');
+            return;
         }
 
-        // Step 3: Ask about overwrite (optional)
-        const overwrite = await vscode.window.showQuickPick(['No', 'Yes'], {
+        // Step 2: Ask about overwrite only (default Yes)
+        const overwrite = await vscode.window.showQuickPick(['Yes', 'No'], {
             placeHolder: 'Overwrite the current file?',
             title: 'Overwrite Mode'
         });
 
-        // Step 4: Build and execute command
+        // Step 3: Build and execute command
         const currentFile = editor.document.fileName;
-        let command = `deep-insight "${question}"`;
-
-        if (contextFile && contextFile !== 'No') {
-            const workspacePath = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
-            command += ` --context "${path.join(workspacePath, contextFile)}"`;
-        }
+        let command = `deep-insight "${question.trim()}"`;
 
         if (overwrite === 'Yes') {
             command += ' --overwrite';
         }
 
-        command += ` "${currentFile}"`;
+        command += ` -- "${currentFile}"`;
 
         const terminal = vscode.window.createTerminal('Deep Insight');
         terminal.show();
