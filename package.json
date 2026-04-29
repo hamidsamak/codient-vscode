@@ -1,0 +1,41 @@
+{
+	"name": "deep-insight",
+	"displayName": "Deep Insight",
+	"version": "1.0.0",
+	"description": "AI Code Assistant with DeepSeek for VSCode",
+	"publisher": "hamidsamak",
+	"author": "Hamid Samak",
+	"license": "MIT",
+	"engines": {
+		"vscode": "^1.80.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"main": "extension.js",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/hamidsamak/deep-insight-vscode.git"
+	},
+	"homepage": "https://github.com/hamidsamak/deep-insight-vscode",
+	"bugs": {
+		"url": "https://github.com/hamidsamak/deep-insight-vscode/issues"
+	},
+	"contributes": {
+		"commands": [
+			{
+				"command": "deep-insight.ask",
+				"title": "Deep Insight: Ask AI (Select Files)"
+			},
+			{
+				"command": "deep-insight.askCurrent",
+				"title": "Deep Insight: Ask AI (Current File)"
+			},
+			{
+				"command": "deep-insight.browser",
+				"title": "Deep Insight: Open Browser Session"
+			}
+		],
+		"keybindings": []
+	}
+}
