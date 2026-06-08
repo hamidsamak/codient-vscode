@@ -2,6 +2,20 @@ const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
 
+function getModelFlag() {
+    const config = vscode.workspace.getConfiguration('codient');
+    const model = config.get('defaultModel', 'default');
+    if (model === 'default') return '';
+    return ` --model ${model}`;
+}
+
+function getProxyFlag() {
+    const config = vscode.workspace.getConfiguration('codient');
+    const proxy = config.get('proxy', '').trim();
+    if (!proxy) return '';
+    return ` --proxy ${proxy}`;
+}
+
 function activate(context) {
 
     // Command 1: Ask AI about multiple files (composite mode)
@@ -65,7 +79,7 @@ function activate(context) {
                 placeHolder: 'Select context file(s) (for reference) - use space to select multiple',
                 title: 'Choose Context Files'
             });
-            
+
             if (!contextFiles || contextFiles.length === 0) {
                 vscode.window.showWarningMessage('No context files selected. Continuing without context...');
                 contextFiles = [];
@@ -81,6 +95,10 @@ function activate(context) {
         // Step 5: Build command with correct order
         const workspacePath = workspaceFolder.uri.fsPath;
         let command = `codient "${question.trim()}"`;
+
+        // Add model and proxy flags
+        command += getModelFlag();
+        command += getProxyFlag();
 
         // Add overwrite FIRST (if selected)
         if (overwrite === 'Yes') {
@@ -116,7 +134,7 @@ function activate(context) {
         const terminal = vscode.window.createTerminal('Codient');
         terminal.show();
         terminal.sendText('codient --browser');
-        vscode.window.showInformationMessage('🌐 Browser opened. Login and close when done.');
+        vscode.window.showInformationMessage('🌐 Codient browser session opened. Login and close when done.');
     }));
 
     // Command 3: Ask AI about current file (simplified)
@@ -153,6 +171,10 @@ function activate(context) {
         // Step 3: Build and execute command
         const currentFile = editor.document.fileName;
         let command = `codient "${question.trim()}"`;
+
+        // Add model and proxy flags
+        command += getModelFlag();
+        command += getProxyFlag();
 
         if (overwrite === 'Yes') {
             command += ' --overwrite';

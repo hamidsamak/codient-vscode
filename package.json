@@ -36,6 +36,33 @@
 				"title": "Codient: Open Browser Session"
 			}
 		],
-		"keybindings": []
+		"keybindings": [],
+		"configuration": {
+			"title": "Codient",
+			"properties": {
+				"codient.defaultModel": {
+					"type": "string",
+					"default": "default",
+					"enum": [
+						"default",
+						"claude",
+						"chatgpt",
+						"deepseek"
+					],
+					"enumDescriptions": [
+						"Default",
+						"Claude",
+						"ChatGPT",
+						"DeepSeek"
+					],
+					"description": "Default AI model to use for Codient commands"
+				},
+				"codient.proxy": {
+					"type": "string",
+					"default": "",
+					"description": "Proxy address for Codient (e.g. http://127.0.0.1:8080 or socks5://127.0.0.1:1080). Leave empty to disable."
+				}
+			}
+		}
 	}
 }
