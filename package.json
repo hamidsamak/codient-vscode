@@ -24,12 +24,16 @@
 	"contributes": {
 		"commands": [
 			{
-				"command": "codient.composite",
-				"title": "Codient: Ask AI (Composite Mode - Multiple Files)"
+				"command": "codient.createFiles",
+				"title": "Codient: Create New File(s) with AI"
 			},
 			{
 				"command": "codient.askCurrent",
 				"title": "Codient: Ask AI (Current File)"
+			},
+			{
+				"command": "codient.composite",
+				"title": "Codient: Ask AI (Composite Mode - Multiple Files)"
 			},
 			{
 				"command": "codient.browser",

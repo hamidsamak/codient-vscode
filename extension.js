@@ -21,14 +21,12 @@ function activate(context) {
     // Command 1: Ask AI about multiple files (composite mode)
     context.subscriptions.push(vscode.commands.registerCommand('codient.composite', async () => {
 
-        // Get workspace folder
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
         if (!workspaceFolder) {
             vscode.window.showErrorMessage('Please open a workspace/project folder first!');
             return;
         }
 
-        // Find all code files
         const allFiles = await findCodeFiles(workspaceFolder.uri.fsPath);
 
         if (allFiles.length === 0) {
@@ -36,7 +34,6 @@ function activate(context) {
             return;
         }
 
-        // Step 1: Select main files to process
         const selectedFiles = await vscode.window.showQuickPick(allFiles, {
             canPickMany: true,
             placeHolder: 'Select main file(s) to process (use space to select multiple)',
@@ -48,7 +45,6 @@ function activate(context) {
             return;
         }
 
-        // Step 2: Get question (with validation)
         const question = await vscode.window.showInputBox({
             prompt: 'What would you like the AI to do?',
             placeHolder: 'Add error handling, refactor code, optimize performance...',
@@ -65,7 +61,6 @@ function activate(context) {
             return;
         }
 
-        // Step 3: Ask about context files (multiple, optional, default Yes)
         let contextFiles = [];
         const wantContext = await vscode.window.showQuickPick(['Yes', 'No'], {
             placeHolder: 'Do you want to provide context file(s)?',
@@ -86,44 +81,35 @@ function activate(context) {
             }
         }
 
-        // Step 4: Ask about overwrite (default Yes)
         const overwrite = await vscode.window.showQuickPick(['Yes', 'No'], {
             placeHolder: 'Overwrite the selected file(s)?',
             title: 'Overwrite Mode'
         });
 
-        // Step 5: Build command with correct order
         const workspacePath = workspaceFolder.uri.fsPath;
         let command = `codient "${question.trim()}"`;
 
-        // Add model and proxy flags
         command += getModelFlag();
         command += getProxyFlag();
 
-        // Add overwrite FIRST (if selected)
         if (overwrite === 'Yes') {
             command += ' --overwrite';
         }
 
-        // Add context files SECOND (if any)
         if (contextFiles.length > 0) {
             const contextPaths = contextFiles.map(f => `"${path.join(workspacePath, f)}"`).join(' ');
             command += ` --context ${contextPaths}`;
         }
 
-        // Add -- separator
         command += ' --';
 
-        // Add all selected main files at the end
         const filePaths = selectedFiles.map(f => `"${path.join(workspacePath, f)}"`).join(' ');
         command += ` ${filePaths}`;
 
-        // Execute in terminal
         const terminal = vscode.window.createTerminal('Codient');
         terminal.show();
         terminal.sendText(command);
 
-        // Show confirmation message
         const fileCount = selectedFiles.length;
         const contextCount = contextFiles.length;
         vscode.window.showInformationMessage(`🤖 Sending ${fileCount} main file(s) with ${contextCount} context file(s) to AI...`);
@@ -145,7 +131,6 @@ function activate(context) {
             return;
         }
 
-        // Step 1: Get question (with validation)
         const question = await vscode.window.showInputBox({
             prompt: 'What would you like the AI to do?',
             placeHolder: 'Fix this code, add comments, optimize performance...',
@@ -162,17 +147,14 @@ function activate(context) {
             return;
         }
 
-        // Step 2: Ask about overwrite only (default Yes)
         const overwrite = await vscode.window.showQuickPick(['Yes', 'No'], {
             placeHolder: 'Overwrite the current file?',
             title: 'Overwrite Mode'
         });
 
-        // Step 3: Build and execute command
         const currentFile = editor.document.fileName;
         let command = `codient "${question.trim()}"`;
 
-        // Add model and proxy flags
         command += getModelFlag();
         command += getProxyFlag();
 
@@ -187,6 +169,46 @@ function activate(context) {
         terminal.sendText(command);
 
         vscode.window.showInformationMessage(`🤖 Sending request to AI...`);
+    }));
+
+    // Command 4: Create new file(s) from scratch (no input files)
+    context.subscriptions.push(vscode.commands.registerCommand('codient.createFiles', async () => {
+
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            vscode.window.showErrorMessage('Please open a workspace/project folder first!');
+            return;
+        }
+
+        const question = await vscode.window.showInputBox({
+            prompt: 'Describe the file(s) you want the AI to create',
+            placeHolder: 'Create a Flask app with app.py and routes.py...',
+            validateInput: (value) => {
+                if (!value || value.trim() === '') {
+                    return 'Description cannot be empty!';
+                }
+                return null;
+            }
+        });
+
+        if (!question || question.trim() === '') {
+            vscode.window.showWarningMessage('Operation cancelled: No description provided.');
+            return;
+        }
+
+        let command = `codient "${question.trim()}"`;
+        command += getModelFlag();
+        command += getProxyFlag();
+        command += ' --overwrite';
+
+        const terminal = vscode.window.createTerminal({
+            name: 'Codient',
+            cwd: workspaceFolder.uri.fsPath
+        });
+        terminal.show();
+        terminal.sendText(command);
+
+        vscode.window.showInformationMessage(`🆕 Asking AI to create new file(s) in ${workspaceFolder.uri.fsPath}...`);
     }));
 }
 
