@@ -1,6 +1,6 @@
-# Deep Insight – DeepSeek AI Assistant for VSCode
+# Codient – AI Code Assistant for VSCode
 
-Deep Insight is a command-line driven Visual Studio Code extension that integrates **DeepSeek AI** to analyze, refactor, and generate code directly from your workspace.
+Codient is a command-line driven Visual Studio Code extension that integrates **Claude, ChatGPT, and DeepSeek** (via the Codient CLI) to analyze, refactor, and generate code directly from your workspace.
 
 It is designed for real-world development workflows, supporting multi-file analysis, context injection, rollback history, safe overwrite, and browser-based sessions.
 
@@ -8,7 +8,7 @@ It is designed for real-world development workflows, supporting multi-file analy
 
 ## ✨ Features
 
-- 🤖 Powered by DeepSeek AI (via CLI + Selenium bridge)
+- 🤖 Multi-model AI support (Claude, ChatGPT, DeepSeek) via Codient CLI
 - 📂 Analyze single or multiple files
 - 🧠 Composite mode for multi-file understanding
 - 📌 Optional context file injection
@@ -32,9 +32,9 @@ Then use one of the following commands:
 
 ---
 
-### Deep Insight: Ask AI (Current File)
+### Codient: Ask AI (Current File)
 
-Deep Insight: Ask AI (Current File)
+Codient: Ask AI (Current File)
 
 Analyze only the currently open file.
 
@@ -46,11 +46,11 @@ Use this for:
 
 ---
 
-### Deep Insight: Ask AI (Composite Mode - Multiple Files)
+### Codient: Ask AI (Composite Mode - Multiple Files)
 
-Deep Insight: Ask AI (Composite Mode - Multiple Files)
+Codient: Ask AI (Composite Mode - Multiple Files)
 
-Analyze multiple files together using DeepSeek AI.
+Analyze multiple files together using AI.
 
 Use this for:
 - Cross-file refactoring
@@ -60,11 +60,11 @@ Use this for:
 
 ---
 
-### Deep Insight: Open Browser Session
+### Codient: Open Browser Session
 
-Deep Insight: Open Browser Session
+Codient: Open Browser Session
 
-Opens a persistent DeepSeek web session in Chrome.
+Opens a persistent AI web session in Chrome.
 
 Use this for:
 - Manual AI interaction
@@ -76,12 +76,12 @@ Use this for:
 
 ## ⚙️ CLI Integration
 
-This extension acts as a frontend for a Python CLI engine.
+This extension acts as a frontend for the Codient Python CLI engine.
 
 Example usage:
 
 ```bash
-deep-insight "Fix this code" file1.py file2.py
+codient "Fix this code" file1.py file2.py
 ```
 
 ---
@@ -100,5 +100,5 @@ vsce package
 
 📥 Install Locally in VSCode
 ```bash
-code --install-extension deep-insight-1.0.0.vsix
+code --install-extension codient-1.0.0.vsix
 ```

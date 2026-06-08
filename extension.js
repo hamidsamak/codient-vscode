@@ -5,7 +5,7 @@ const path = require('path');
 function activate(context) {
 
     // Command 1: Ask AI about multiple files (composite mode)
-    context.subscriptions.push(vscode.commands.registerCommand('deep-insight.composite', async () => {
+    context.subscriptions.push(vscode.commands.registerCommand('codient.composite', async () => {
 
         // Get workspace folder
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -80,7 +80,7 @@ function activate(context) {
 
         // Step 5: Build command with correct order
         const workspacePath = workspaceFolder.uri.fsPath;
-        let command = `deep-insight "${question.trim()}"`;
+        let command = `codient "${question.trim()}"`;
 
         // Add overwrite FIRST (if selected)
         if (overwrite === 'Yes') {
@@ -101,7 +101,7 @@ function activate(context) {
         command += ` ${filePaths}`;
 
         // Execute in terminal
-        const terminal = vscode.window.createTerminal('Deep Insight');
+        const terminal = vscode.window.createTerminal('Codient');
         terminal.show();
         terminal.sendText(command);
 
@@ -112,15 +112,15 @@ function activate(context) {
     }));
 
     // Command 2: Open Browser Session
-    context.subscriptions.push(vscode.commands.registerCommand('deep-insight.browser', () => {
-        const terminal = vscode.window.createTerminal('Deep Insight');
+    context.subscriptions.push(vscode.commands.registerCommand('codient.browser', () => {
+        const terminal = vscode.window.createTerminal('Codient');
         terminal.show();
-        terminal.sendText('deep-insight --browser');
+        terminal.sendText('codient --browser');
         vscode.window.showInformationMessage('🌐 Browser opened. Login and close when done.');
     }));
 
     // Command 3: Ask AI about current file (simplified)
-    context.subscriptions.push(vscode.commands.registerCommand('deep-insight.askCurrent', async () => {
+    context.subscriptions.push(vscode.commands.registerCommand('codient.askCurrent', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
             vscode.window.showErrorMessage('Open a file first!');
@@ -152,7 +152,7 @@ function activate(context) {
 
         // Step 3: Build and execute command
         const currentFile = editor.document.fileName;
-        let command = `deep-insight "${question.trim()}"`;
+        let command = `codient "${question.trim()}"`;
 
         if (overwrite === 'Yes') {
             command += ' --overwrite';
@@ -160,7 +160,7 @@ function activate(context) {
 
         command += ` -- "${currentFile}"`;
 
-        const terminal = vscode.window.createTerminal('Deep Insight');
+        const terminal = vscode.window.createTerminal('Codient');
         terminal.show();
         terminal.sendText(command);
 
