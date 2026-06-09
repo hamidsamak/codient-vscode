@@ -30,13 +30,13 @@ function runCodient(args, cwd) {
     return new Promise((resolve, reject) => {
         const channel = getOutputChannel();
         channel.clear();
-        // channel.show(true);
-
         channel.appendLine('▶ Running: codient ' + args.join(' '));
         channel.appendLine('─'.repeat(60));
 
+        const workspacePath = cwd || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
         const proc = spawn('codient', args, {
-            cwd: cwd || undefined,
+            cwd: workspacePath,
             shell: true
         });
 
@@ -138,7 +138,7 @@ function activate(context) {
 
         const workspacePath = workspaceFolder.uri.fsPath;
 
-        const args = [question.trim()];
+        const args = ['"' + question.trim().replace(/"/g, '\\"') + '"'];
         args.push(...getModelArgs());
         args.push(...getProxyArgs());
 
@@ -206,7 +206,7 @@ function activate(context) {
 
         const currentFile = editor.document.fileName;
 
-        const args = [question.trim()];
+        const args = ['"' + question.trim().replace(/"/g, '\\"') + '"'];
         args.push(...getModelArgs());
         args.push(...getProxyArgs());
 
@@ -250,7 +250,7 @@ function activate(context) {
             return;
         }
 
-        const args = [question.trim()];
+        const args = ['"' + question.trim().replace(/"/g, '\\"') + '"'];
         args.push(...getModelArgs());
         args.push(...getProxyArgs());
         args.push('--overwrite');
