@@ -1,19 +1,69 @@
 const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 
-function getModelFlag() {
-    const config = vscode.workspace.getConfiguration('codient');
-    const model = config.get('defaultModel', 'default');
-    if (model === 'default') return '';
-    return ` --model ${model}`;
+let outputChannel;
+
+function getOutputChannel() {
+    if (!outputChannel) {
+        outputChannel = vscode.window.createOutputChannel('Codient');
+    }
+    return outputChannel;
 }
 
-function getProxyFlag() {
+function getModelArgs() {
+    const config = vscode.workspace.getConfiguration('codient');
+    const model = config.get('defaultModel', 'default');
+    if (model === 'default') return [];
+    return ['--model', model];
+}
+
+function getProxyArgs() {
     const config = vscode.workspace.getConfiguration('codient');
     const proxy = config.get('proxy', '').trim();
-    if (!proxy) return '';
-    return ` --proxy ${proxy}`;
+    if (!proxy) return [];
+    return ['--proxy', proxy];
+}
+
+function runCodient(args, cwd) {
+    return new Promise((resolve, reject) => {
+        const channel = getOutputChannel();
+        channel.clear();
+        // channel.show(true);
+
+        channel.appendLine('▶ Running: codient ' + args.join(' '));
+        channel.appendLine('─'.repeat(60));
+
+        const proc = spawn('codient', args, {
+            cwd: cwd || undefined,
+            shell: true
+        });
+
+        proc.stdout.on('data', (data) => {
+            channel.append(data.toString());
+        });
+
+        proc.stderr.on('data', (data) => {
+            channel.append(data.toString());
+        });
+
+        proc.on('close', (code) => {
+            channel.appendLine('─'.repeat(60));
+            if (code === 0) {
+                channel.appendLine('✅ Done.');
+                resolve();
+            } else {
+                channel.appendLine(`❌ Process exited with code ${code}`);
+                reject(new Error(`Process exited with code ${code}`));
+            }
+        });
+
+        proc.on('error', (err) => {
+            channel.appendLine(`❌ Error: ${err.message}`);
+            reject(err);
+        });
+    });
 }
 
 function activate(context) {
@@ -87,40 +137,42 @@ function activate(context) {
         });
 
         const workspacePath = workspaceFolder.uri.fsPath;
-        let command = `codient "${question.trim()}"`;
 
-        command += getModelFlag();
-        command += getProxyFlag();
+        const args = [question.trim()];
+        args.push(...getModelArgs());
+        args.push(...getProxyArgs());
 
         if (overwrite === 'Yes') {
-            command += ' --overwrite';
+            args.push('--overwrite');
         }
 
         if (contextFiles.length > 0) {
-            const contextPaths = contextFiles.map(f => `"${path.join(workspacePath, f)}"`).join(' ');
-            command += ` --context ${contextPaths}`;
+            args.push('--context');
+            contextFiles.forEach(f => args.push(path.join(workspacePath, f)));
         }
 
-        command += ' --';
-
-        const filePaths = selectedFiles.map(f => `"${path.join(workspacePath, f)}"`).join(' ');
-        command += ` ${filePaths}`;
-
-        const terminal = vscode.window.createTerminal('Codient');
-        terminal.show();
-        terminal.sendText(command);
+        args.push('--');
+        selectedFiles.forEach(f => args.push(path.join(workspacePath, f)));
 
         const fileCount = selectedFiles.length;
         const contextCount = contextFiles.length;
         vscode.window.showInformationMessage(`🤖 Sending ${fileCount} main file(s) with ${contextCount} context file(s) to AI...`);
+
+        try {
+            await runCodient(args, workspacePath);
+        } catch (err) {
+            vscode.window.showErrorMessage(`Codient failed: ${err.message}`);
+        }
     }));
 
     // Command 2: Open Browser Session
-    context.subscriptions.push(vscode.commands.registerCommand('codient.browser', () => {
-        const terminal = vscode.window.createTerminal('Codient');
-        terminal.show();
-        terminal.sendText('codient --browser');
+    context.subscriptions.push(vscode.commands.registerCommand('codient.browser', async () => {
         vscode.window.showInformationMessage('🌐 Codient browser session opened. Login and close when done.');
+        try {
+            await runCodient(['--browser']);
+        } catch (err) {
+            vscode.window.showErrorMessage(`Codient failed: ${err.message}`);
+        }
     }));
 
     // Command 3: Ask AI about current file (simplified)
@@ -153,22 +205,24 @@ function activate(context) {
         });
 
         const currentFile = editor.document.fileName;
-        let command = `codient "${question.trim()}"`;
 
-        command += getModelFlag();
-        command += getProxyFlag();
+        const args = [question.trim()];
+        args.push(...getModelArgs());
+        args.push(...getProxyArgs());
 
         if (overwrite === 'Yes') {
-            command += ' --overwrite';
+            args.push('--overwrite');
         }
 
-        command += ` -- "${currentFile}"`;
-
-        const terminal = vscode.window.createTerminal('Codient');
-        terminal.show();
-        terminal.sendText(command);
+        args.push('--', currentFile);
 
         vscode.window.showInformationMessage(`🤖 Sending request to AI...`);
+
+        try {
+            await runCodient(args);
+        } catch (err) {
+            vscode.window.showErrorMessage(`Codient failed: ${err.message}`);
+        }
     }));
 
     // Command 4: Create new file(s) from scratch (no input files)
@@ -196,19 +250,18 @@ function activate(context) {
             return;
         }
 
-        let command = `codient "${question.trim()}"`;
-        command += getModelFlag();
-        command += getProxyFlag();
-        command += ' --overwrite';
-
-        const terminal = vscode.window.createTerminal({
-            name: 'Codient',
-            cwd: workspaceFolder.uri.fsPath
-        });
-        terminal.show();
-        terminal.sendText(command);
+        const args = [question.trim()];
+        args.push(...getModelArgs());
+        args.push(...getProxyArgs());
+        args.push('--overwrite');
 
         vscode.window.showInformationMessage(`🆕 Asking AI to create new file(s) in ${workspaceFolder.uri.fsPath}...`);
+
+        try {
+            await runCodient(args, workspaceFolder.uri.fsPath);
+        } catch (err) {
+            vscode.window.showErrorMessage(`Codient failed: ${err.message}`);
+        }
     }));
 }
 
