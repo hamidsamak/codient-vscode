@@ -100,5 +100,5 @@ vsce package
 
 📥 Install Locally in VSCode
 ```bash
-code --install-extension codient-1.0.0.vsix
+code --install-extension codient-*.vsix
 ```
