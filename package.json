@@ -44,7 +44,7 @@
 		"configuration": {
 			"title": "Codient",
 			"properties": {
-				"codient.defaultModel": {
+				"codient.model": {
 					"type": "string",
 					"default": "default",
 					"enum": [

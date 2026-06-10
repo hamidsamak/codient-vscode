@@ -14,7 +14,7 @@ function getOutputChannel() {
 
 function getModelArgs() {
     const config = vscode.workspace.getConfiguration('codient');
-    const model = config.get('defaultModel', 'default');
+    const model = config.get('model', 'default');
     if (model === 'default') return [];
     return ['--model', model];
 }
