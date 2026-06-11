@@ -26,13 +26,6 @@ function getProxyArgs() {
   return ['--proxy', proxy];
 }
 
-function getDefaults() {
-  const config = vscode.workspace.getConfiguration('codient');
-  return {
-    askForContext: config.get('defaults.askForContext', false),
-  };
-}
-
 function runCodient(args, cwd) {
   return new Promise((resolve, reject) => {
     const channel = getOutputChannel();
@@ -77,7 +70,6 @@ function runCodient(args, cwd) {
 
 async function promptQuestionAndFiles(workspacePath, options = {}) {
   const { skipFiles = false } = options;
-  const defaults = getDefaults();
 
   // Step 1: Question
   const question = await vscode.window.showInputBox({
@@ -223,7 +215,7 @@ function activate(context) {
   context.subscriptions.push(vscode.commands.registerCommand('codient.browser', async () => {
     vscode.window.showInformationMessage('🌐 Codient browser session opened. Login and close when done.');
     try {
-      await runCodient(['--browser']);
+      await runCodient(['--browser', ...getModelArgs(), ...getProxyArgs()]);
     } catch (err) {
       vscode.window.showErrorMessage(`Codient failed: ${err.message}`);
     }

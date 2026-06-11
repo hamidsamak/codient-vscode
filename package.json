@@ -1,7 +1,7 @@
 {
   "name": "codient",
   "displayName": "Codient",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "AI Code Assistant powered by Codient for VSCode",
   "publisher": "hamidsamak",
   "author": "Hamid Samak",
