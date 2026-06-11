@@ -1,72 +1,89 @@
 {
-	"name": "codient",
-	"displayName": "Codient",
-	"version": "1.0.1",
-	"description": "AI Code Assistant powered by Codient for VSCode",
-	"publisher": "hamidsamak",
-	"author": "Hamid Samak",
-	"license": "MIT",
-	"engines": {
-		"vscode": "^1.80.0"
-	},
-	"categories": [
-		"Other"
-	],
-	"main": "extension.js",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/hamidsamak/codient-vscode.git"
-	},
-	"homepage": "https://github.com/hamidsamak/codient-vscode",
-	"bugs": {
-		"url": "https://github.com/hamidsamak/codient-vscode/issues"
-	},
-	"contributes": {
-		"commands": [
-			{
-				"command": "codient.createFiles",
-				"title": "Codient: Create New File(s) with AI"
-			},
-			{
-				"command": "codient.askCurrent",
-				"title": "Codient: Ask AI (Current File)"
-			},
-			{
-				"command": "codient.composite",
-				"title": "Codient: Ask AI (Composite Mode - Multiple Files)"
-			},
-			{
-				"command": "codient.browser",
-				"title": "Codient: Open Browser Session"
-			}
-		],
-		"keybindings": [],
-		"configuration": {
-			"title": "Codient",
-			"properties": {
-				"codient.model": {
-					"type": "string",
-					"default": "default",
-					"enum": [
-						"default",
-						"claude",
-						"chatgpt",
-						"deepseek"
-					],
-					"enumDescriptions": [
-						"Default",
-						"Claude",
-						"ChatGPT",
-						"DeepSeek"
-					],
-					"description": "Default AI model to use for Codient commands"
-				},
-				"codient.proxy": {
-					"type": "string",
-					"default": "",
-					"description": "Proxy address for Codient (e.g. http://127.0.0.1:8080 or socks5://127.0.0.1:1080). Leave empty to disable."
-				}
-			}
-		}
-	}
+  "name": "codient",
+  "displayName": "Codient",
+  "version": "1.0.1",
+  "description": "AI Code Assistant powered by Codient for VSCode",
+  "publisher": "hamidsamak",
+  "author": "Hamid Samak",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "extension.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hamidsamak/codient-vscode.git"
+  },
+  "homepage": "https://github.com/hamidsamak/codient-vscode",
+  "bugs": {
+    "url": "https://github.com/hamidsamak/codient-vscode/issues"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "codient.ask",
+        "title": "Codient: Ask AI"
+      },
+      {
+        "command": "codient.preview",
+        "title": "Codient: Preview Changes"
+      },
+      {
+        "command": "codient.browser",
+        "title": "Codient: Open Browser Session"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "codient.ask",
+          "group": "codient@1"
+        },
+        {
+          "command": "codient.preview",
+          "group": "codient@2"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "codient.ask",
+          "group": "codient@1"
+        },
+        {
+          "command": "codient.preview",
+          "group": "codient@2"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Codient",
+      "properties": {
+        "codient.model": {
+          "type": "string",
+          "default": "default",
+          "enum": [
+            "default",
+            "claude",
+            "chatgpt",
+            "deepseek"
+          ],
+          "enumDescriptions": [
+            "Default",
+            "Claude",
+            "ChatGPT",
+            "DeepSeek"
+          ],
+          "description": "Default AI model to use for Codient commands"
+        },
+        "codient.proxy": {
+          "type": "string",
+          "default": "",
+          "description": "Proxy address (e.g. http://127.0.0.1:8080 or socks5://127.0.0.1:1080). Leave empty to disable."
+        }
+      }
+    }
+  }
 }
