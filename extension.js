@@ -1,6 +1,7 @@
 const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { spawn } = require('child_process');
 
 let outputChannel;
@@ -24,6 +25,31 @@ function getProxyArgs() {
   const proxy = config.get('proxy', '').trim();
   if (!proxy) return [];
   return ['--proxy', proxy];
+}
+
+function getProfileArgs() {
+  const config = vscode.workspace.getConfiguration('codient');
+  const profile = config.get('profile', 'default').trim();
+  if (!profile || profile === 'default') return [];
+  return ['--profile', profile];
+}
+
+function getCurrentProfile() {
+  const config = vscode.workspace.getConfiguration('codient');
+  return config.get('profile', 'default').trim() || 'default';
+}
+
+function getExistingProfiles() {
+  const profilesDir = path.join(os.homedir(), '.codient', 'profiles');
+  try {
+    if (!fs.existsSync(profilesDir)) return [];
+    return fs.readdirSync(profilesDir).filter(name => {
+      const fullPath = path.join(profilesDir, name);
+      return fs.statSync(fullPath).isDirectory();
+    }).sort();
+  } catch {
+    return [];
+  }
 }
 
 function runCodient(args, cwd) {
@@ -66,6 +92,44 @@ function runCodient(args, cwd) {
 
     return proc;
   });
+}
+
+async function pickProfile() {
+  const existing = getExistingProfiles();
+  const current = getCurrentProfile();
+
+  const NEW_PROFILE_OPTION = '$(plus) Enter new profile name...';
+
+  const items = existing.map(name => ({
+    label: name,
+    description: name === current ? '← current' : '',
+    picked: name === current,
+  }));
+
+  items.push({ label: NEW_PROFILE_OPTION, description: '' });
+
+  const picked = await vscode.window.showQuickPick(items, {
+    placeHolder: `Current profile: ${current} — pick or create one`,
+    title: 'Switch Codient Profile',
+  });
+
+  if (!picked) return null;
+
+  if (picked.label === NEW_PROFILE_OPTION) {
+    const newName = await vscode.window.showInputBox({
+      prompt: 'Enter new profile name',
+      placeHolder: 'e.g. work, personal, client-x',
+      validateInput: (value) => {
+        if (!value || value.trim() === '') return 'Profile name cannot be empty.';
+        if (!/^[\w\-]+$/.test(value.trim())) return 'Only letters, numbers, dashes, and underscores are allowed.';
+        return null;
+      }
+    });
+    if (!newName || newName.trim() === '') return null;
+    return newName.trim();
+  }
+
+  return picked.label;
 }
 
 async function promptQuestionAndFiles(workspacePath, options = {}) {
@@ -112,13 +176,13 @@ async function promptQuestionAndFiles(workspacePath, options = {}) {
     selectedFiles = selectedFiles.map(f => f.label);
   }
 
-  // Step 3: Context files (based on default setting)
+  // Step 3: Context files
   let contextFiles = [];
   const pick = await vscode.window.showQuickPick(['No', 'Yes'], {
     placeHolder: 'Add context files (read-only reference)?',
     title: 'Context Files'
   });
-  wantContext = pick ?? 'No';
+  const wantContext = pick ?? 'No';
 
   if (wantContext === 'Yes') {
     const allFiles = await findCodeFiles(workspacePath);
@@ -142,6 +206,7 @@ function buildArgs(question, selectedFiles, contextFiles, workspacePath, overwri
   const args = ['"' + question.replace(/"/g, '\\"') + '"'];
   args.push(...getModelArgs());
   args.push(...getProxyArgs());
+  args.push(...getProfileArgs());
 
   if (overwrite) args.push('--overwrite');
 
@@ -160,9 +225,8 @@ function buildArgs(question, selectedFiles, contextFiles, workspacePath, overwri
 
 function activate(context) {
 
-  // Command 1: Ask — question first, then files, then context. Always overwrites.
+  // Command 1: Ask — always overwrites
   context.subscriptions.push(vscode.commands.registerCommand('codient.ask', async () => {
-
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
       vscode.window.showErrorMessage('Please open a workspace/project folder first!');
@@ -176,7 +240,7 @@ function activate(context) {
     const { question, selectedFiles, contextFiles } = result;
     const args = buildArgs(question, selectedFiles, contextFiles, workspacePath, true);
 
-    vscode.window.showInformationMessage(`🤖 Sending to AI... (${selectedFiles.length} file(s))`);
+    vscode.window.showInformationMessage(`🤖 Sending to AI... (profile: ${getCurrentProfile()}, ${selectedFiles.length} file(s))`);
 
     try {
       await runCodient(args, workspacePath);
@@ -186,9 +250,8 @@ function activate(context) {
     }
   }));
 
-  // Command 2: Preview — question first, then files, then context. No overwrite → opens browser.
+  // Command 2: Preview — no overwrite, opens diff in browser
   context.subscriptions.push(vscode.commands.registerCommand('codient.preview', async () => {
-
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
       vscode.window.showErrorMessage('Please open a workspace/project folder first!');
@@ -202,7 +265,7 @@ function activate(context) {
     const { question, selectedFiles, contextFiles } = result;
     const args = buildArgs(question, selectedFiles, contextFiles, workspacePath, false);
 
-    vscode.window.showInformationMessage(`🔍 Previewing changes in browser...`);
+    vscode.window.showInformationMessage(`🔍 Previewing changes in browser... (profile: ${getCurrentProfile()})`);
 
     try {
       await runCodient(args, workspacePath);
@@ -211,15 +274,27 @@ function activate(context) {
     }
   }));
 
-  // Command 3: Open Browser Session
+  // Command 3: Open Browser Session (uses current profile)
   context.subscriptions.push(vscode.commands.registerCommand('codient.browser', async () => {
-    vscode.window.showInformationMessage('🌐 Codient browser session opened. Login and close when done.');
+    const profile = getCurrentProfile();
+    vscode.window.showInformationMessage(`🌐 Codient browser session opened (profile: ${profile}). Login and close when done.`);
     try {
-      await runCodient(['--browser', ...getModelArgs(), ...getProxyArgs()]);
+      await runCodient(['--browser', '--profile', profile, ...getModelArgs(), ...getProxyArgs()]);
     } catch (err) {
       vscode.window.showErrorMessage(`Codient failed: ${err.message}`);
     }
   }));
+
+  // Command 4: Switch Profile
+  context.subscriptions.push(vscode.commands.registerCommand('codient.switchProfile', async () => {
+    const selected = await pickProfile();
+    if (!selected) return;
+
+    const config = vscode.workspace.getConfiguration('codient');
+    await config.update('profile', selected, vscode.ConfigurationTarget.Global);
+    vscode.window.showInformationMessage(`👤 Codient profile switched to: ${selected}`);
+  }));
+
 }
 
 // Find all code files in directory
