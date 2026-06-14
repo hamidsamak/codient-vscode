@@ -207,6 +207,7 @@ function buildArgs(question, selectedFiles, contextFiles, workspacePath, overwri
   args.push(...getModelArgs());
   args.push(...getProxyArgs());
   args.push(...getProfileArgs());
+  args.push('--non-interactive');
 
   if (overwrite) args.push('--overwrite');
 
