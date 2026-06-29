@@ -6,6 +6,13 @@ const { spawn } = require('child_process');
 
 let outputChannel;
 
+const MODEL_OPTIONS = [
+  { label: 'Default',  value: 'Default'  },
+  { label: 'Claude',   value: 'Claude'   },
+  { label: 'ChatGPT',  value: 'ChatGPT'  },
+  { label: 'DeepSeek', value: 'DeepSeek' },
+];
+
 function getOutputChannel() {
   if (!outputChannel) {
     outputChannel = vscode.window.createOutputChannel('Codient');
@@ -15,9 +22,9 @@ function getOutputChannel() {
 
 function getModelArgs() {
   const config = vscode.workspace.getConfiguration('codient');
-  const model = config.get('model', 'default');
-  if (model === 'default') return [];
-  return ['--model', model];
+  const model = config.get('model', 'Default');
+  if (model === 'Default') return [];
+  return ['--model', model.toLowerCase()];
 }
 
 function getProxyArgs() {
@@ -37,6 +44,11 @@ function getProfileArgs() {
 function getCurrentProfile() {
   const config = vscode.workspace.getConfiguration('codient');
   return config.get('profile', 'default').trim() || 'default';
+}
+
+function getCurrentModel() {
+  const config = vscode.workspace.getConfiguration('codient');
+  return config.get('model', 'Default').trim() || 'Default';
 }
 
 function getExistingProfiles() {
@@ -294,6 +306,27 @@ function activate(context) {
     const config = vscode.workspace.getConfiguration('codient');
     await config.update('profile', selected, vscode.ConfigurationTarget.Global);
     vscode.window.showInformationMessage(`👤 Codient profile switched to: ${selected}`);
+  }));
+
+  // Command 5: Switch Model
+  context.subscriptions.push(vscode.commands.registerCommand('codient.switchModel', async () => {
+    const config = vscode.workspace.getConfiguration('codient');
+    const currentModel = getCurrentModel();
+
+    const items = MODEL_OPTIONS.map(m => ({
+      label: m.value === currentModel ? `${m.label} ← current` : m.label,
+      value: m.value,
+    }));
+
+    const picked = await vscode.window.showQuickPick(items, {
+      placeHolder: `Current model: ${currentModel} — pick a model`,
+      title: 'Switch Codient Model',
+    });
+
+    if (!picked) return;
+
+    await config.update('model', picked.value, vscode.ConfigurationTarget.Global);
+    vscode.window.showInformationMessage(`🤖 Codient model switched to: ${picked.label.replace(' ← current', '')}`);
   }));
 
 }

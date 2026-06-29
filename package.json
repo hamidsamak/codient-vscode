@@ -1,7 +1,7 @@
 {
   "name": "codient",
   "displayName": "Codient",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "AI Code Assistant powered by Codient for VSCode",
   "publisher": "hamidsamak",
   "author": "Hamid Samak",
@@ -39,6 +39,10 @@
       {
         "command": "codient.switchProfile",
         "title": "Codient: Switch Profile"
+      },
+      {
+        "command": "codient.switchModel",
+        "title": "Codient: Switch Model"
       }
     ],
     "menus": {
@@ -68,17 +72,17 @@
       "properties": {
         "codient.model": {
           "type": "string",
-          "default": "default",
+          "default": "Default",
           "enum": [
-            "default",
-            "claude",
-            "chatgpt",
-            "deepseek"
-          ],
-          "enumDescriptions": [
             "Default",
             "Claude",
             "ChatGPT",
+            "DeepSeek"
+          ],
+          "enumDescriptions": [
+            "Use the default model configured in Codient",
+            "Anthropic Claude",
+            "OpenAI ChatGPT",
             "DeepSeek"
           ],
           "description": "Default AI model to use for Codient commands"
