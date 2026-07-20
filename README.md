@@ -10,7 +10,7 @@ Learn how to install and use Codient as an AI coding assistant:
 
 <p align="center">
   <a href="https://www.youtube.com/watch?v=7rxg5bH-JLo">
-    <img src="https://img.youtube.com/vi/7rxg5bH-JLo/maxresdefault.jpg" width="600">
+    <img src="https://img.youtube.com/vi/7rxg5bH-JLo/maxresdefault.jpg" width="600" alt="Codient Tutorial">
   </a>
 </p>
 
