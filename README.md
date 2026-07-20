@@ -4,6 +4,16 @@ Codient is a command-line driven Visual Studio Code extension that integrates **
 
 It is designed for real-world development workflows, supporting multi-file analysis, context injection, rollback history, safe overwrite, and browser-based sessions.
 
+## 🎥 Tutorial
+
+Learn how to install and use Codient as an AI coding assistant:
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=7rxg5bH-JLo">
+    <img src="https://img.youtube.com/vi/7rxg5bH-JLo/maxresdefault.jpg" width="600">
+  </a>
+</p>
+
 ---
 
 ## ✨ Features
