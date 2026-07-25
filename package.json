@@ -77,12 +77,14 @@
             "Default",
             "Claude",
             "ChatGPT",
+            "Gemini",
             "DeepSeek"
           ],
           "enumDescriptions": [
             "Use the default model configured in Codient",
             "Anthropic Claude",
             "OpenAI ChatGPT",
+            "Google Gemini",
             "DeepSeek"
           ],
           "description": "Default AI model to use for Codient commands"

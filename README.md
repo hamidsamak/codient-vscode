@@ -1,6 +1,6 @@
 # Codient – AI Code Assistant for VSCode
 
-Codient is a command-line driven Visual Studio Code extension that integrates **Claude, ChatGPT, and DeepSeek** (via the Codient CLI) to analyze, refactor, and generate code directly from your workspace.
+Codient is a command-line driven Visual Studio Code extension that integrates **Claude, ChatGPT, Gemini, and DeepSeek** (via the Codient CLI) to analyze, refactor, and generate code directly from your workspace.
 
 It is designed for real-world development workflows, supporting multi-file analysis, context injection, rollback history, safe overwrite, and browser-based sessions.
 
@@ -18,7 +18,7 @@ Learn how to install and use Codient as an AI coding assistant:
 
 ## ✨ Features
 
-- 🤖 Multi-model AI support (Claude, ChatGPT, DeepSeek) via Codient CLI
+- 🤖 Multi-model AI support (Claude, ChatGPT, Gemini, DeepSeek) via Codient CLI
 - 📂 Analyze single or multiple files
 - 🧠 Composite mode for multi-file understanding
 - 📌 Optional context file injection
@@ -96,7 +96,7 @@ Use this for:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `codient.model` | `default` | AI model to use: `claude`, `chatgpt`, `deepseek` |
+| `codient.model` | `default` | AI model to use: `claude`, `chatgpt`, `gemini`, `deepseek` |
 | `codient.proxy` | `` | Proxy address (e.g. `http://127.0.0.1:8080`) |
 | `codient.profile` | `default` | Chrome profile to use. Use `Codient: Switch Profile` to change interactively. |
 

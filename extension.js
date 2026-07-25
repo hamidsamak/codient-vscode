@@ -10,6 +10,7 @@ const MODEL_OPTIONS = [
   { label: 'Default',  value: 'Default'  },
   { label: 'Claude',   value: 'Claude'   },
   { label: 'ChatGPT',  value: 'ChatGPT'  },
+  { label: 'Gemini', value: 'Gemini' },
   { label: 'DeepSeek', value: 'DeepSeek' },
 ];
 
