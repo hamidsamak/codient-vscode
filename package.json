@@ -1,7 +1,7 @@
 {
   "name": "codient",
   "displayName": "Codient",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "description": "AI Code Assistant powered by Codient for VSCode",
   "publisher": "hamidsamak",
   "author": "Hamid Samak",
@@ -43,6 +43,18 @@
       {
         "command": "codient.switchModel",
         "title": "Codient: Switch Model"
+      },
+      {
+        "command": "codient.setChatId",
+        "title": "Codient: Set Chat ID"
+      },
+      {
+        "command": "codient.clearChatId",
+        "title": "Codient: Clear Chat ID"
+      },
+      {
+        "command": "codient.chatIdMenu",
+        "title": "Codient: Chat ID Options"
       }
     ],
     "menus": {

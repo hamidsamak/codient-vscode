@@ -5,6 +5,8 @@ const os = require('os');
 const { spawn } = require('child_process');
 
 let outputChannel;
+let chatIdStatusBarItem;
+let extensionContext;
 
 const MODEL_OPTIONS = [
   { label: 'Default',  value: 'Default'  },
@@ -13,6 +15,22 @@ const MODEL_OPTIONS = [
   { label: 'Gemini', value: 'Gemini' },
   { label: 'DeepSeek', value: 'DeepSeek' },
 ];
+
+const MODEL_URL_PATTERNS = {
+  claude:   /claude\.ai\/chat\/([a-zA-Z0-9-]+)/,
+  chatgpt:  /chatgpt\.com\/c\/([a-zA-Z0-9-]+)/,
+  gemini:   /gemini\.google\.com\/app\/([a-zA-Z0-9-]+)/,
+  deepseek: /chat\.deepseek\.com\/a\/chat\/s\/([a-zA-Z0-9-]+)/,
+};
+
+const MODEL_DISPLAY_NAMES = {
+  claude: 'Claude',
+  chatgpt: 'ChatGPT',
+  gemini: 'Gemini',
+  deepseek: 'DeepSeek',
+};
+
+const CHAT_IDS_STATE_KEY = 'codient.chatIds';
 
 function getOutputChannel() {
   if (!outputChannel) {
@@ -52,6 +70,12 @@ function getCurrentModel() {
   return config.get('model', 'Default').trim() || 'Default';
 }
 
+function getEffectiveModelKey() {
+  const model = getCurrentModel();
+  if (model === 'Default') return 'deepseek';
+  return model.toLowerCase();
+}
+
 function getExistingProfiles() {
   const profilesDir = path.join(os.homedir(), '.codient', 'profiles');
   try {
@@ -63,6 +87,88 @@ function getExistingProfiles() {
   } catch {
     return [];
   }
+}
+
+function getChatIdsMap() {
+  return extensionContext.globalState.get(CHAT_IDS_STATE_KEY, {});
+}
+
+function getChatIdForModel(modelKey) {
+  const map = getChatIdsMap();
+  return map[modelKey] || null;
+}
+
+async function setChatIdForModel(modelKey, chatId) {
+  const map = getChatIdsMap();
+  map[modelKey] = chatId;
+  await extensionContext.globalState.update(CHAT_IDS_STATE_KEY, map);
+  updateChatIdStatusBar();
+}
+
+async function clearChatIdForModel(modelKey) {
+  const map = getChatIdsMap();
+  delete map[modelKey];
+  await extensionContext.globalState.update(CHAT_IDS_STATE_KEY, map);
+  updateChatIdStatusBar();
+}
+
+function getChatIdArgs() {
+  const modelKey = getEffectiveModelKey();
+  const chatId = getChatIdForModel(modelKey);
+  if (!chatId) return [];
+  return ['--chat-id', chatId];
+}
+
+function parseChatIdInput(rawInput, modelKey) {
+  const text = (rawInput || '').trim();
+  if (!text) return null;
+
+  if (/^https?:\/\//i.test(text)) {
+    const pattern = MODEL_URL_PATTERNS[modelKey];
+    if (pattern) {
+      const match = text.match(pattern);
+      if (match) return match[1];
+    }
+    const segments = text.split('/').filter(Boolean);
+    return segments.length ? segments[segments.length - 1] : null;
+  }
+
+  return text;
+}
+
+async function getClipboardSuggestion(modelKey) {
+  try {
+    const clipboardText = (await vscode.env.clipboard.readText() || '').trim();
+    if (!clipboardText) return '';
+    const parsed = parseChatIdInput(clipboardText, modelKey);
+    return parsed || '';
+  } catch {
+    return '';
+  }
+}
+
+function shortenChatId(chatId, length = 10) {
+  if (!chatId) return '';
+  return chatId.length > length ? `${chatId.slice(0, length)}…` : chatId;
+}
+
+function updateChatIdStatusBar() {
+  if (!chatIdStatusBarItem) return;
+
+  const modelKey = getEffectiveModelKey();
+  const modelName = MODEL_DISPLAY_NAMES[modelKey] || modelKey;
+  const chatId = getChatIdForModel(modelKey);
+
+  if (chatId) {
+    chatIdStatusBarItem.text = `$(comment-discussion) ${modelName} · ${shortenChatId(chatId)}`;
+    chatIdStatusBarItem.tooltip = `Codient — ${modelName}\nChat ID: ${chatId}\nClick to change`;
+  } else {
+    chatIdStatusBarItem.text = `$(comment) ${modelName} · New Chat`;
+    chatIdStatusBarItem.tooltip = `Codient — ${modelName}\nNo chat ID set (a new chat will be started)\nClick to set one`;
+  }
+
+  chatIdStatusBarItem.command = 'codient.chatIdMenu';
+  chatIdStatusBarItem.show();
 }
 
 function runCodient(args, cwd) {
@@ -79,8 +185,12 @@ function runCodient(args, cwd) {
       shell: true
     });
 
+    let stdoutBuffer = '';
+
     proc.stdout.on('data', (data) => {
-      channel.append(data.toString());
+      const text = data.toString();
+      stdoutBuffer += text;
+      channel.append(text);
     });
 
     proc.stderr.on('data', (data) => {
@@ -91,7 +201,7 @@ function runCodient(args, cwd) {
       channel.appendLine('─'.repeat(60));
       if (code === 0) {
         channel.appendLine('✅ Done.');
-        resolve();
+        resolve({ stdout: stdoutBuffer });
       } else {
         channel.appendLine(`❌ Process exited with code ${code}`);
         reject(new Error(`Process exited with code ${code}`));
@@ -105,6 +215,30 @@ function runCodient(args, cwd) {
 
     return proc;
   });
+}
+
+async function maybeOfferToSaveNewChatId(stdout, wasChatIdPassed) {
+  if (wasChatIdPassed) return;
+
+  const match = stdout.match(/CODIENT_NEW_CHAT_URL::([^:]+)::(\S+)/);
+  if (!match) return;
+
+  const modelKey = match[1].toLowerCase();
+  const chatUrl = match[2];
+  const parsedId = parseChatIdInput(chatUrl, modelKey);
+  if (!parsedId) return;
+
+  const modelName = MODEL_DISPLAY_NAMES[modelKey] || modelKey;
+  const choice = await vscode.window.showInformationMessage(
+    `🆕 A new ${modelName} chat was started. Save it for future Codient commands?`,
+    'Save',
+    'Not now'
+  );
+
+  if (choice === 'Save') {
+    await setChatIdForModel(modelKey, parsedId);
+    vscode.window.showInformationMessage(`💾 Codient will continue using this ${modelName} chat.`);
+  }
 }
 
 async function pickProfile() {
@@ -220,6 +354,7 @@ function buildArgs(question, selectedFiles, contextFiles, workspacePath, overwri
   args.push(...getModelArgs());
   args.push(...getProxyArgs());
   args.push(...getProfileArgs());
+  args.push(...getChatIdArgs());
   args.push('--non-interactive');
 
   if (overwrite) args.push('--overwrite');
@@ -238,6 +373,11 @@ function buildArgs(question, selectedFiles, contextFiles, workspacePath, overwri
 }
 
 function activate(context) {
+  extensionContext = context;
+
+  chatIdStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+  context.subscriptions.push(chatIdStatusBarItem);
+  updateChatIdStatusBar();
 
   // Command 1: Ask — always overwrites
   context.subscriptions.push(vscode.commands.registerCommand('codient.ask', async () => {
@@ -253,12 +393,14 @@ function activate(context) {
 
     const { question, selectedFiles, contextFiles } = result;
     const args = buildArgs(question, selectedFiles, contextFiles, workspacePath, true);
+    const hadChatId = getChatIdArgs().length > 0;
 
     vscode.window.showInformationMessage(`🤖 Sending to AI... (profile: ${getCurrentProfile()}, ${selectedFiles.length} file(s))`);
 
     try {
-      await runCodient(args, workspacePath);
+      const { stdout } = await runCodient(args, workspacePath);
       vscode.window.showInformationMessage('✅ Codient applied changes.');
+      await maybeOfferToSaveNewChatId(stdout, hadChatId);
     } catch (err) {
       vscode.window.showErrorMessage(`Codient failed: ${err.message}`);
     }
@@ -278,11 +420,13 @@ function activate(context) {
 
     const { question, selectedFiles, contextFiles } = result;
     const args = buildArgs(question, selectedFiles, contextFiles, workspacePath, false);
+    const hadChatId = getChatIdArgs().length > 0;
 
     vscode.window.showInformationMessage(`🔍 Previewing changes in browser... (profile: ${getCurrentProfile()})`);
 
     try {
-      await runCodient(args, workspacePath);
+      const { stdout } = await runCodient(args, workspacePath);
+      await maybeOfferToSaveNewChatId(stdout, hadChatId);
     } catch (err) {
       vscode.window.showErrorMessage(`Codient failed: ${err.message}`);
     }
@@ -291,9 +435,17 @@ function activate(context) {
   // Command 3: Open Browser Session (uses current profile)
   context.subscriptions.push(vscode.commands.registerCommand('codient.browser', async () => {
     const profile = getCurrentProfile();
-    vscode.window.showInformationMessage(`🌐 Codient browser session opened (profile: ${profile}). Login and close when done.`);
+    const modelKey = getEffectiveModelKey();
+    const modelName = MODEL_DISPLAY_NAMES[modelKey] || modelKey;
+    const chatIdArgs = getChatIdArgs();
+
+    const chatInfo = chatIdArgs.length > 0
+      ? `continuing existing ${modelName} chat`
+      : `new ${modelName} chat`;
+
+    vscode.window.showInformationMessage(`🌐 Codient browser session opened (profile: ${profile}, ${chatInfo}). Login and close when done.`);
     try {
-      await runCodient(['--browser', '--profile', profile, ...getModelArgs(), ...getProxyArgs()]);
+      await runCodient(['--browser', '--profile', profile, ...getModelArgs(), ...getProxyArgs(), ...chatIdArgs]);
     } catch (err) {
       vscode.window.showErrorMessage(`Codient failed: ${err.message}`);
     }
@@ -328,8 +480,87 @@ function activate(context) {
 
     await config.update('model', picked.value, vscode.ConfigurationTarget.Global);
     vscode.window.showInformationMessage(`🤖 Codient model switched to: ${picked.label.replace(' ← current', '')}`);
+    updateChatIdStatusBar();
   }));
 
+  // Command 6: Set Chat ID (for the currently effective model)
+  context.subscriptions.push(vscode.commands.registerCommand('codient.setChatId', async () => {
+    const modelKey = getEffectiveModelKey();
+    const modelName = MODEL_DISPLAY_NAMES[modelKey] || modelKey;
+
+    const clipboardSuggestion = await getClipboardSuggestion(modelKey);
+
+    const input = await vscode.window.showInputBox({
+      title: `Set Chat ID — ${modelName}`,
+      prompt: `Paste a ${modelName} chat URL or chat ID`,
+      placeHolder: 'e.g. https://claude.ai/chat/67797ac7-... or just the ID',
+      value: clipboardSuggestion,
+      validateInput: (value) => {
+        if (!value || value.trim() === '') return 'Please enter a chat URL or ID.';
+        return null;
+      }
+    });
+
+    if (!input) return;
+
+    const parsedId = parseChatIdInput(input, modelKey);
+    if (!parsedId) {
+      vscode.window.showErrorMessage('Could not parse a chat ID from that input.');
+      return;
+    }
+
+    await setChatIdForModel(modelKey, parsedId);
+    vscode.window.showInformationMessage(`💬 ${modelName} chat ID set: ${shortenChatId(parsedId, 16)}`);
+  }));
+
+  // Command 7: Clear Chat ID (for the currently effective model)
+  context.subscriptions.push(vscode.commands.registerCommand('codient.clearChatId', async () => {
+    const modelKey = getEffectiveModelKey();
+    const modelName = MODEL_DISPLAY_NAMES[modelKey] || modelKey;
+    const existing = getChatIdForModel(modelKey);
+
+    if (!existing) {
+      vscode.window.showInformationMessage(`ℹ️ No chat ID is set for ${modelName}.`);
+      return;
+    }
+
+    await clearChatIdForModel(modelKey);
+    vscode.window.showInformationMessage(`🧹 ${modelName} chat ID cleared. The next request will start a new chat.`);
+  }));
+
+  // Command 8: Status bar click menu
+  context.subscriptions.push(vscode.commands.registerCommand('codient.chatIdMenu', async () => {
+    const modelKey = getEffectiveModelKey();
+    const modelName = MODEL_DISPLAY_NAMES[modelKey] || modelKey;
+    const existing = getChatIdForModel(modelKey);
+
+    const items = [
+      { label: '$(edit) Set Chat ID...', action: 'set' },
+      { label: '$(trash) Clear Chat ID', action: 'clear', description: existing ? '' : 'No chat ID set' },
+      { label: '$(arrow-swap) Switch Model', action: 'switchModel' },
+    ];
+
+    const picked = await vscode.window.showQuickPick(items, {
+      placeHolder: `Codient — ${modelName}${existing ? ` (${shortenChatId(existing)})` : ' (New Chat)'}`,
+      title: 'Codient Chat Options',
+    });
+
+    if (!picked) return;
+
+    if (picked.action === 'set') {
+      await vscode.commands.executeCommand('codient.setChatId');
+    } else if (picked.action === 'clear') {
+      await vscode.commands.executeCommand('codient.clearChatId');
+    } else if (picked.action === 'switchModel') {
+      await vscode.commands.executeCommand('codient.switchModel');
+    }
+  }));
+
+  context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((e) => {
+    if (e.affectsConfiguration('codient.model')) {
+      updateChatIdStatusBar();
+    }
+  }));
 }
 
 // Find all code files in directory
