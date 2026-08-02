@@ -90,7 +90,7 @@ function getExistingProfiles() {
 }
 
 function getChatIdsMap() {
-  return extensionContext.globalState.get(CHAT_IDS_STATE_KEY, {});
+  return extensionContext.workspaceState.get(CHAT_IDS_STATE_KEY, {});
 }
 
 function getChatIdForModel(modelKey) {
@@ -101,14 +101,14 @@ function getChatIdForModel(modelKey) {
 async function setChatIdForModel(modelKey, chatId) {
   const map = getChatIdsMap();
   map[modelKey] = chatId;
-  await extensionContext.globalState.update(CHAT_IDS_STATE_KEY, map);
+  await extensionContext.workspaceState.update(CHAT_IDS_STATE_KEY, map);
   updateChatIdStatusBar();
 }
 
 async function clearChatIdForModel(modelKey) {
   const map = getChatIdsMap();
   delete map[modelKey];
-  await extensionContext.globalState.update(CHAT_IDS_STATE_KEY, map);
+  await extensionContext.workspaceState.update(CHAT_IDS_STATE_KEY, map);
   updateChatIdStatusBar();
 }
 
