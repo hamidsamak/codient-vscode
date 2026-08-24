@@ -1,7 +1,7 @@
 {
   "name": "codient",
   "displayName": "Codient",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "AI Code Assistant powered by Codient for VSCode",
   "publisher": "hamidsamak",
   "author": "Hamid Samak",
@@ -99,17 +99,66 @@
             "Google Gemini",
             "DeepSeek"
           ],
-          "description": "Default AI model to use for Codient commands"
-        },
-        "codient.proxy": {
-          "type": "string",
-          "default": "",
-          "description": "Proxy address (e.g. http://127.0.0.1:8080 or socks5://127.0.0.1:1080). Leave empty to disable."
+          "description": "Default AI model to use for Codient commands",
+          "order": 1
         },
         "codient.profile": {
           "type": "string",
           "default": "default",
-          "description": "Default Chrome profile to use. Profiles are stored in ~/.codient/profiles/. Use 'Codient: Switch Profile' command to change interactively."
+          "description": "Default Chrome profile to use. Profiles are stored in ~/.codient/profiles/. Use 'Codient: Switch Profile' command to change interactively.",
+          "order": 2
+        },
+        "codient.proxy": {
+          "type": "string",
+          "default": "",
+          "description": "Proxy address (e.g. http://127.0.0.1:8080 or socks5://127.0.0.1:1080). Leave empty to disable.",
+          "order": 3
+        },
+        "codient.codeExtensions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            ".py",
+            ".js",
+            ".ts",
+            ".jsx",
+            ".tsx",
+            ".java",
+            ".cpp",
+            ".c",
+            ".go",
+            ".rs",
+            ".php",
+            ".rb",
+            ".html",
+            ".css",
+            ".scss",
+            ".sass",
+            ".less",
+            ".json"
+          ],
+          "description": "File extensions to include when scanning for code files. Add items via the Settings UI to extend the default list, or replace the array entirely in a workspace .vscode/settings.json to restrict a large project to only certain extensions (e.g. only [\".php\"]).",
+          "order": 4
+        },
+        "codient.excludeDirs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "node_modules",
+            ".git",
+            "dist",
+            "build",
+            "__pycache__",
+            "venv",
+            "env",
+            ".venv"
+          ],
+          "description": "Directory names to exclude when scanning for code files. Add items via the Settings UI to exclude more (e.g. \"vendor\", \"storage\"), or replace the array entirely in a workspace .vscode/settings.json.",
+          "order": 5
         }
       }
     }

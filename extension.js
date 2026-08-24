@@ -32,6 +32,17 @@ const MODEL_DISPLAY_NAMES = {
 
 const CHAT_IDS_STATE_KEY = 'codient.chatIds';
 
+const DEFAULT_CODE_EXTENSIONS = [
+  '.py', '.js', '.ts', '.jsx', '.tsx', '.java', '.cpp', '.c',
+  '.go', '.rs', '.php', '.rb', '.html', '.css', '.scss', '.sass',
+  '.less', '.json'
+];
+
+const DEFAULT_EXCLUDE_DIRS = [
+  'node_modules', '.git', 'dist', 'build', '__pycache__',
+  'venv', 'env', '.venv'
+];
+
 function getOutputChannel() {
   if (!outputChannel) {
     outputChannel = vscode.window.createOutputChannel('Codient');
@@ -74,6 +85,27 @@ function getEffectiveModelKey() {
   const model = getCurrentModel();
   if (model === 'Default') return 'deepseek';
   return model.toLowerCase();
+}
+
+function normalizeExtension(ext) {
+  if (!ext) return null;
+  const trimmed = String(ext).trim().toLowerCase();
+  if (!trimmed) return null;
+  return trimmed.startsWith('.') ? trimmed : `.${trimmed}`;
+}
+
+function getCodeExtensions() {
+  const config = vscode.workspace.getConfiguration('codient');
+  const list = config.get('codeExtensions', DEFAULT_CODE_EXTENSIONS);
+  const normalized = list.map(normalizeExtension).filter(Boolean);
+  return [...new Set(normalized)];
+}
+
+function getExcludeDirs() {
+  const config = vscode.workspace.getConfiguration('codient');
+  const list = config.get('excludeDirs', DEFAULT_EXCLUDE_DIRS);
+  const normalized = list.map(d => (d || '').trim()).filter(Boolean);
+  return [...new Set(normalized)];
 }
 
 function getExistingProfiles() {
@@ -565,8 +597,8 @@ function activate(context) {
 
 // Find all code files in directory
 async function findCodeFiles(dir) {
-  const codeExtensions = ['.py', '.js', '.ts', '.jsx', '.tsx', '.java', '.cpp', '.c', '.go', '.rs', '.php', '.rb', '.html', '.css', '.json'];
-  const excludeDirs = ['node_modules', '.git', 'dist', 'build', '__pycache__', 'venv', 'env', '.venv'];
+  const codeExtensions = getCodeExtensions();
+  const excludeDirs = getExcludeDirs();
 
   const files = [];
 
