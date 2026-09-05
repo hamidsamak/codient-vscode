@@ -31,6 +31,9 @@ const MODEL_DISPLAY_NAMES = {
 };
 
 const CHAT_IDS_STATE_KEY = 'codient.chatIds';
+const MRU_FILES_STATE_KEY = 'codient.mruFiles';
+const LAST_SELECTED_FILES_STATE_KEY = 'codient.lastSelectedFiles';
+const MAX_MRU_FILES = 15;
 
 const DEFAULT_CODE_EXTENSIONS = [
   '.py', '.js', '.ts', '.jsx', '.tsx', '.java', '.cpp', '.c',
@@ -311,6 +314,126 @@ async function pickProfile() {
   return picked.label;
 }
 
+// ---------------------------------------------------------------------------
+// File usage tracking: open editors, MRU (recently used) files, and the
+// last full selection, so the file-picker can surface likely-relevant files
+// first instead of forcing the user to scroll/search a flat list every time.
+// ---------------------------------------------------------------------------
+
+function getOpenEditorFiles(workspacePath) {
+  const files = new Set();
+  try {
+    for (const group of vscode.window.tabGroups.all) {
+      for (const tab of group.tabs) {
+        const input = tab.input;
+        if (input instanceof vscode.TabInputText && input.uri) {
+          const fsPath = input.uri.fsPath;
+          if (fsPath && fsPath.startsWith(workspacePath + path.sep)) {
+            const rel = path.relative(workspacePath, fsPath);
+            if (rel && !rel.startsWith('..')) {
+              files.add(rel);
+            }
+          }
+        }
+      }
+    }
+  } catch {
+    // tabGroups API not available in some environments; fail silently.
+  }
+  return [...files].sort();
+}
+
+function getMruFiles() {
+  return extensionContext.workspaceState.get(MRU_FILES_STATE_KEY, []);
+}
+
+function getLastSelectedFiles() {
+  return extensionContext.workspaceState.get(LAST_SELECTED_FILES_STATE_KEY, []);
+}
+
+async function recordFileUsage(selectedFiles) {
+  if (!selectedFiles || selectedFiles.length === 0) return;
+
+  const currentMru = getMruFiles();
+  const newMru = [
+    ...selectedFiles,
+    ...currentMru.filter(f => !selectedFiles.includes(f))
+  ].slice(0, MAX_MRU_FILES);
+
+  await extensionContext.workspaceState.update(MRU_FILES_STATE_KEY, newMru);
+  await extensionContext.workspaceState.update(LAST_SELECTED_FILES_STATE_KEY, selectedFiles);
+}
+
+// Builds a grouped QuickPick item list: Open Editors -> Recently Used -> All Files.
+// Each file appears in exactly one group (first match wins), so there's no duplication.
+function buildGroupedFileItems(workspacePath, allFiles, options = {}) {
+  const { activeRelative = null, excludeFiles = [], preselectOpenFiles = true } = options;
+  const excludeSet = new Set(excludeFiles);
+  const allFilesSet = new Set(allFiles);
+
+  const openFiles = getOpenEditorFiles(workspacePath)
+    .filter(f => !excludeSet.has(f));
+
+  const openSet = new Set(openFiles);
+
+  const mruFiles = getMruFiles()
+    .filter(f => !excludeSet.has(f) && !openSet.has(f))
+    .filter(f => allFilesSet.has(f) || fs.existsSync(path.join(workspacePath, f)));
+
+  const mruSet = new Set(mruFiles);
+
+  const remaining = allFiles.filter(f => !excludeSet.has(f) && !openSet.has(f) && !mruSet.has(f));
+
+  const items = [];
+
+  if (openFiles.length > 0) {
+    items.push({ label: 'Open Editors', kind: vscode.QuickPickItemKind.Separator });
+    openFiles.forEach(f => items.push({ label: f, picked: preselectOpenFiles && f === activeRelative }));
+  }
+
+  if (mruFiles.length > 0) {
+    items.push({ label: 'Recently Used', kind: vscode.QuickPickItemKind.Separator });
+    mruFiles.forEach(f => items.push({ label: f, picked: false }));
+  }
+
+  if (remaining.length > 0) {
+    items.push({ label: 'All Files', kind: vscode.QuickPickItemKind.Separator });
+    remaining.forEach(f => items.push({ label: f, picked: f === activeRelative }));
+  }
+
+  return items;
+}
+
+// Offers to reuse the last full file selection, when one exists and every
+// file in it still exists on disk. Returns:
+//  - an array of relative paths if the user chose to reuse it
+//  - null if the user wants to pick manually (or there's nothing to reuse)
+async function maybeReuseLastSelection(workspacePath) {
+  const lastSelected = getLastSelectedFiles();
+  if (!lastSelected || lastSelected.length === 0) return null;
+
+  const stillExisting = lastSelected.filter(f => fs.existsSync(path.join(workspacePath, f)));
+  if (stillExisting.length === 0) return null;
+
+  const label = stillExisting.length === 1
+    ? `$(history) Reuse last selection: ${stillExisting[0]}`
+    : `$(history) Reuse last selection (${stillExisting.length} files)`;
+
+  const picked = await vscode.window.showQuickPick(
+    [
+      { label, action: 'reuse' },
+      { label: '$(list-selection) Pick files manually', action: 'manual' },
+    ],
+    {
+      placeHolder: 'Which files should be edited?',
+      title: 'Select Files to Edit',
+    }
+  );
+
+  if (!picked || picked.action === 'manual') return null;
+  return stillExisting;
+}
+
 async function promptQuestionAndFiles(workspacePath, options = {}) {
   const { skipFiles = false } = options;
 
@@ -330,29 +453,40 @@ async function promptQuestionAndFiles(workspacePath, options = {}) {
 
   let selectedFiles = [];
   if (!skipFiles) {
-    // Step 2: Main files
-    const allFiles = await findCodeFiles(workspacePath);
-    if (allFiles.length === 0) {
-      vscode.window.showErrorMessage('No code files found in workspace!');
-      return null;
+    // Step 2: Main files — offer to reuse the last selection first.
+    const reused = await maybeReuseLastSelection(workspacePath);
+
+    if (reused) {
+      selectedFiles = reused;
+    } else {
+      const allFiles = await findCodeFiles(workspacePath);
+      if (allFiles.length === 0) {
+        vscode.window.showErrorMessage('No code files found in workspace!');
+        return null;
+      }
+
+      // Pre-select active editor if open (only used inside the "All Files" group;
+      // if the active file is already open/MRU it's already pre-selected there).
+      const activeFile = vscode.window.activeTextEditor?.document.fileName;
+      const activeRelative = activeFile ? path.relative(workspacePath, activeFile) : null;
+
+      const fileItems = buildGroupedFileItems(workspacePath, allFiles, { activeRelative });
+
+      const picked = await vscode.window.showQuickPick(fileItems, {
+        canPickMany: true,
+        placeHolder: 'Select file(s) to edit (open editors pre-selected)',
+        title: 'Files to Edit'
+      });
+
+      if (!picked || picked.length === 0) {
+        vscode.window.showWarningMessage('Operation cancelled: No files selected.');
+        return null;
+      }
+
+      selectedFiles = picked.map(f => f.label);
     }
 
-    // Pre-select active editor if open
-    const activeFile = vscode.window.activeTextEditor?.document.fileName;
-    const activeRelative = activeFile ? path.relative(workspacePath, activeFile) : null;
-
-    const fileItems = allFiles.map(f => ({
-      label: f,
-      picked: f === activeRelative
-    }));
-
-    selectedFiles = await vscode.window.showQuickPick(fileItems, {
-      canPickMany: true,
-      placeHolder: 'Select file(s) to edit (active file pre-selected)',
-      title: 'Files to Edit'
-    });
-
-    selectedFiles = selectedFiles.map(f => f.label);
+    await recordFileUsage(selectedFiles);
   }
 
   // Step 3: Context files
@@ -365,16 +499,18 @@ async function promptQuestionAndFiles(workspacePath, options = {}) {
 
   if (wantContext === 'Yes') {
     const allFiles = await findCodeFiles(workspacePath);
-    const contextItems = await vscode.window.showQuickPick(
-      allFiles.filter(f => !selectedFiles.includes(f)).map(f => ({ label: f })),
-      {
-        canPickMany: true,
-        placeHolder: 'Select context file(s) (read-only, for reference)',
-        title: 'Context Files'
-      }
-    );
-    if (contextItems && contextItems.length > 0) {
-      contextFiles = contextItems.map(f => f.label);
+    const contextItems = buildGroupedFileItems(workspacePath, allFiles, {
+      excludeFiles: selectedFiles,
+      preselectOpenFiles: false,
+    });
+
+    const picked = await vscode.window.showQuickPick(contextItems, {
+      canPickMany: true,
+      placeHolder: 'Select context file(s) (read-only, for reference)',
+      title: 'Context Files'
+    });
+    if (picked && picked.length > 0) {
+      contextFiles = picked.map(f => f.label);
     }
   }
 
