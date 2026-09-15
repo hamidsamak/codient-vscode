@@ -260,9 +260,7 @@ function runCodient(args, cwd) {
   });
 }
 
-async function maybeOfferToSaveNewChatId(stdout, wasChatIdPassed) {
-  if (wasChatIdPassed) return;
-
+async function maybeSyncChatId(stdout, hadChatId) {
   const match = stdout.match(/CODIENT_NEW_CHAT_URL::([^:]+)::(\S+)/);
   if (!match) return;
 
@@ -272,6 +270,23 @@ async function maybeOfferToSaveNewChatId(stdout, wasChatIdPassed) {
   if (!parsedId) return;
 
   const modelName = MODEL_DISPLAY_NAMES[modelKey] || modelKey;
+
+  if (hadChatId) {
+    await clearChatIdForModel(modelKey);
+
+    const choice = await vscode.window.showWarningMessage(
+      `⚠️ Your saved ${modelName} chat looks invalid or expired, so Codient started a new one. Use this new chat from now on?`,
+      'Use new chat',
+      'Not now'
+    );
+
+    if (choice === 'Use new chat') {
+      await setChatIdForModel(modelKey, parsedId);
+      vscode.window.showInformationMessage(`💾 Codient will continue using this ${modelName} chat.`);
+    }
+    return;
+  }
+
   const choice = await vscode.window.showInformationMessage(
     `🆕 A new ${modelName} chat was started. Save it for future Codient commands?`,
     'Save',
