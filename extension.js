@@ -260,6 +260,29 @@ function runCodient(args, cwd) {
   });
 }
 
+function extractInvalidChatReason(stdout) {
+  const match = stdout.match(/Chat ID '[^']*' looks invalid(?: or expired)?\s*(?:\(([^)]+)\))?(?:\s*—\s*([^\n\r]+))?/);
+  if (!match) return null;
+
+  const parenDetail = match[1] ? match[1].trim() : '';
+  const dashDetail = match[2] ? match[2].trim() : '';
+
+  const REASON_LABELS = {
+    'not-found page detected': 'the saved chat page no longer exists',
+    'timeout': "Codient couldn't confirm the saved chat in time",
+  };
+
+  if (parenDetail) {
+    return REASON_LABELS[parenDetail] || parenDetail;
+  }
+
+  if (dashDetail && dashDetail !== 'starting a new chat instead') {
+    return dashDetail;
+  }
+
+  return null;
+}
+
 async function maybeSyncChatId(stdout, hadChatId) {
   const match = stdout.match(/CODIENT_NEW_CHAT_URL::([^:]+)::(\S+)/);
   if (!match) return;
@@ -274,8 +297,11 @@ async function maybeSyncChatId(stdout, hadChatId) {
   if (hadChatId) {
     await clearChatIdForModel(modelKey);
 
+    const reason = extractInvalidChatReason(stdout);
+    const reasonSuffix = reason ? ` (${reason})` : '';
+
     const choice = await vscode.window.showWarningMessage(
-      `⚠️ Your saved ${modelName} chat looks invalid or expired, so Codient started a new one. Use this new chat from now on?`,
+      `⚠️ Your saved ${modelName} chat looks invalid or expired${reasonSuffix}, so Codient started a new one. Use this new chat from now on?`,
       'Use new chat',
       'Not now'
     );
@@ -591,7 +617,7 @@ function activate(context) {
     try {
       const { stdout } = await runCodient(args, workspacePath);
       vscode.window.showInformationMessage('✅ Codient applied changes.');
-      await maybeOfferToSaveNewChatId(stdout, hadChatId);
+      await maybeSyncChatId(stdout, hadChatId);
     } catch (err) {
       vscode.window.showErrorMessage(`Codient failed: ${err.message}`);
     }
@@ -617,7 +643,7 @@ function activate(context) {
 
     try {
       const { stdout } = await runCodient(args, workspacePath);
-      await maybeOfferToSaveNewChatId(stdout, hadChatId);
+      await maybeSyncChatId(stdout, hadChatId);
     } catch (err) {
       vscode.window.showErrorMessage(`Codient failed: ${err.message}`);
     }
