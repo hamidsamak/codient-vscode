@@ -46,6 +46,14 @@ const DEFAULT_EXCLUDE_DIRS = [
   'venv', 'env', '.venv'
 ];
 
+function quoteArg(value) {
+  const str = String(value);
+  if (process.platform === 'win32') {
+    return `"${str.replace(/"/g, '\\"')}"`;
+  }
+  return `'${str.replace(/'/g, `'\\''`)}'`;
+}
+
 function getOutputChannel() {
   if (!outputChannel) {
     outputChannel = vscode.window.createOutputChannel('Codient');
@@ -57,21 +65,21 @@ function getModelArgs() {
   const config = vscode.workspace.getConfiguration('codient');
   const model = config.get('model', 'Default');
   if (model === 'Default') return [];
-  return ['--model', model.toLowerCase()];
+  return ['--model', quoteArg(model.toLowerCase())];
 }
 
 function getProxyArgs() {
   const config = vscode.workspace.getConfiguration('codient');
   const proxy = config.get('proxy', '').trim();
   if (!proxy) return [];
-  return ['--proxy', proxy];
+  return ['--proxy', quoteArg(proxy)];
 }
 
 function getProfileArgs() {
   const config = vscode.workspace.getConfiguration('codient');
   const profile = config.get('profile', 'default').trim();
   if (!profile || profile === 'default') return [];
-  return ['--profile', profile];
+  return ['--profile', quoteArg(profile)];
 }
 
 function getCurrentProfile() {
@@ -151,7 +159,7 @@ function getChatIdArgs() {
   const modelKey = getEffectiveModelKey();
   const chatId = getChatIdForModel(modelKey);
   if (!chatId) return [];
-  return ['--chat-id', chatId];
+  return ['--chat-id', quoteArg(chatId)];
 }
 
 function parseChatIdInput(rawInput, modelKey) {
@@ -518,7 +526,7 @@ async function promptQuestionAndFiles(workspacePath, options = {}) {
 }
 
 function buildArgs(question, selectedFiles, contextFiles, workspacePath, overwrite) {
-  const args = ['"' + question.replace(/"/g, '\\"') + '"'];
+  const args = [quoteArg(question)];
   args.push(...getModelArgs());
   args.push(...getProxyArgs());
   args.push(...getProfileArgs());
@@ -529,12 +537,12 @@ function buildArgs(question, selectedFiles, contextFiles, workspacePath, overwri
 
   if (contextFiles.length > 0) {
     args.push('--context');
-    contextFiles.forEach(f => args.push(path.join(workspacePath, f)));
+    contextFiles.forEach(f => args.push(quoteArg(path.join(workspacePath, f))));
   }
 
   if (selectedFiles.length > 0) {
     args.push('--');
-    selectedFiles.forEach(f => args.push(path.join(workspacePath, f)));
+    selectedFiles.forEach(f => args.push(quoteArg(path.join(workspacePath, f))));
   }
 
   return args;
@@ -613,7 +621,7 @@ function activate(context) {
 
     vscode.window.showInformationMessage(`🌐 Codient browser session opened (profile: ${profile}, ${chatInfo}). Login and close when done.`);
     try {
-      await runCodient(['--browser', '--profile', profile, ...getModelArgs(), ...getProxyArgs(), ...chatIdArgs]);
+      await runCodient(['--browser', '--profile', quoteArg(profile), ...getModelArgs(), ...getProxyArgs(), ...chatIdArgs]);
     } catch (err) {
       vscode.window.showErrorMessage(`Codient failed: ${err.message}`);
     }
