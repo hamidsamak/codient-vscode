@@ -2,7 +2,7 @@ const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { spawn } = require('child_process');
+const core = require('./core');
 
 let outputChannel;
 let chatIdStatusBarItem;
@@ -46,14 +46,6 @@ const DEFAULT_EXCLUDE_DIRS = [
   'venv', 'env', '.venv'
 ];
 
-function quoteArg(value) {
-  const str = String(value);
-  if (process.platform === 'win32') {
-    return `"${str.replace(/"/g, '\\"')}"`;
-  }
-  return `'${str.replace(/'/g, `'\\''`)}'`;
-}
-
 function getOutputChannel() {
   if (!outputChannel) {
     outputChannel = vscode.window.createOutputChannel('Codient');
@@ -61,35 +53,25 @@ function getOutputChannel() {
   return outputChannel;
 }
 
-function getModelArgs() {
-  const config = vscode.workspace.getConfiguration('codient');
-  const model = config.get('model', 'Default');
-  if (model === 'Default') return [];
-  return ['--model', quoteArg(model.toLowerCase())];
+function logToChannel(text) {
+  getOutputChannel().appendLine(text);
 }
 
-function getProxyArgs() {
-  const config = vscode.workspace.getConfiguration('codient');
-  const proxy = config.get('proxy', '').trim();
-  if (!proxy) return [];
-  return ['--proxy', quoteArg(proxy)];
+function getConfigValue(key, fallback) {
+  return vscode.workspace.getConfiguration('codient').get(key, fallback);
 }
 
-function getProfileArgs() {
-  const config = vscode.workspace.getConfiguration('codient');
-  const profile = config.get('profile', 'default').trim();
-  if (!profile || profile === 'default') return [];
-  return ['--profile', quoteArg(profile)];
+function getProxy() {
+  const proxy = getConfigValue('proxy', '').trim();
+  return proxy || null;
 }
 
 function getCurrentProfile() {
-  const config = vscode.workspace.getConfiguration('codient');
-  return config.get('profile', 'default').trim() || 'default';
+  return getConfigValue('profile', 'default').trim() || 'default';
 }
 
 function getCurrentModel() {
-  const config = vscode.workspace.getConfiguration('codient');
-  return config.get('model', 'Default').trim() || 'Default';
+  return getConfigValue('model', 'Default').trim() || 'Default';
 }
 
 function getEffectiveModelKey() {
@@ -106,17 +88,13 @@ function normalizeExtension(ext) {
 }
 
 function getCodeExtensions() {
-  const config = vscode.workspace.getConfiguration('codient');
-  const list = config.get('codeExtensions', DEFAULT_CODE_EXTENSIONS);
-  const normalized = list.map(normalizeExtension).filter(Boolean);
-  return [...new Set(normalized)];
+  const list = getConfigValue('codeExtensions', DEFAULT_CODE_EXTENSIONS);
+  return [...new Set(list.map(normalizeExtension).filter(Boolean))];
 }
 
 function getExcludeDirs() {
-  const config = vscode.workspace.getConfiguration('codient');
-  const list = config.get('excludeDirs', DEFAULT_EXCLUDE_DIRS);
-  const normalized = list.map(d => (d || '').trim()).filter(Boolean);
-  return [...new Set(normalized)];
+  const list = getConfigValue('excludeDirs', DEFAULT_EXCLUDE_DIRS);
+  return [...new Set(list.map(d => (d || '').trim()).filter(Boolean))];
 }
 
 function getExistingProfiles() {
@@ -153,13 +131,6 @@ async function clearChatIdForModel(modelKey) {
   delete map[modelKey];
   await extensionContext.workspaceState.update(CHAT_IDS_STATE_KEY, map);
   updateChatIdStatusBar();
-}
-
-function getChatIdArgs() {
-  const modelKey = getEffectiveModelKey();
-  const chatId = getChatIdForModel(modelKey);
-  if (!chatId) return [];
-  return ['--chat-id', quoteArg(chatId)];
 }
 
 function parseChatIdInput(rawInput, modelKey) {
@@ -214,92 +185,19 @@ function updateChatIdStatusBar() {
   chatIdStatusBarItem.show();
 }
 
-function runCodient(args, cwd) {
-  return new Promise((resolve, reject) => {
-    const channel = getOutputChannel();
-    channel.clear();
-    channel.appendLine('▶ Running: codient ' + args.join(' '));
-    channel.appendLine('─'.repeat(60));
+async function maybeSyncChatId(chatInfo) {
+  if (!chatInfo || !chatInfo.newChatUrl) return;
 
-    const workspacePath = cwd || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-
-    const proc = spawn('codient', args, {
-      cwd: workspacePath,
-      shell: true
-    });
-
-    let stdoutBuffer = '';
-
-    proc.stdout.on('data', (data) => {
-      const text = data.toString();
-      stdoutBuffer += text;
-      channel.append(text);
-    });
-
-    proc.stderr.on('data', (data) => {
-      channel.append(data.toString());
-    });
-
-    proc.on('close', (code) => {
-      channel.appendLine('─'.repeat(60));
-      if (code === 0) {
-        channel.appendLine('✅ Done.');
-        resolve({ stdout: stdoutBuffer });
-      } else {
-        channel.appendLine(`❌ Process exited with code ${code}`);
-        reject(new Error(`Process exited with code ${code}`));
-      }
-    });
-
-    proc.on('error', (err) => {
-      channel.appendLine(`❌ Error: ${err.message}`);
-      reject(err);
-    });
-
-    return proc;
-  });
-}
-
-function extractInvalidChatReason(stdout) {
-  const match = stdout.match(/Chat ID '[^']*' looks invalid(?: or expired)?\s*(?:\(([^)]+)\))?(?:\s*—\s*([^\n\r]+))?/);
-  if (!match) return null;
-
-  const parenDetail = match[1] ? match[1].trim() : '';
-  const dashDetail = match[2] ? match[2].trim() : '';
-
-  const REASON_LABELS = {
-    'not-found page detected': 'the saved chat page no longer exists',
-    'timeout': "Codient couldn't confirm the saved chat in time",
-  };
-
-  if (parenDetail) {
-    return REASON_LABELS[parenDetail] || parenDetail;
-  }
-
-  if (dashDetail && dashDetail !== 'starting a new chat instead') {
-    return dashDetail;
-  }
-
-  return null;
-}
-
-async function maybeSyncChatId(stdout, hadChatId) {
-  const match = stdout.match(/CODIENT_NEW_CHAT_URL::([^:]+)::(\S+)/);
-  if (!match) return;
-
-  const modelKey = match[1].toLowerCase();
-  const chatUrl = match[2];
-  const parsedId = parseChatIdInput(chatUrl, modelKey);
+  const modelKey = chatInfo.model;
+  const parsedId = parseChatIdInput(chatInfo.newChatUrl, modelKey);
   if (!parsedId) return;
 
   const modelName = MODEL_DISPLAY_NAMES[modelKey] || modelKey;
 
-  if (hadChatId) {
+  if (chatInfo.hadChatId) {
     await clearChatIdForModel(modelKey);
 
-    const reason = extractInvalidChatReason(stdout);
-    const reasonSuffix = reason ? ` (${reason})` : '';
-
+    const reasonSuffix = chatInfo.invalidReason ? ` (${chatInfo.invalidReason})` : '';
     const choice = await vscode.window.showWarningMessage(
       `⚠️ Your saved ${modelName} chat looks invalid or expired${reasonSuffix}, so Codient started a new one. Use this new chat from now on?`,
       'Use new chat',
@@ -363,11 +261,6 @@ async function pickProfile() {
   return picked.label;
 }
 
-// ---------------------------------------------------------------------------
-// File usage tracking: open editors, MRU (recently used) files, and the
-// last full selection, so the file-picker can surface likely-relevant files
-// first instead of forcing the user to scroll/search a flat list every time.
-// ---------------------------------------------------------------------------
 
 function getOpenEditorFiles(workspacePath) {
   const files = new Set();
@@ -387,7 +280,6 @@ function getOpenEditorFiles(workspacePath) {
       }
     }
   } catch {
-    // tabGroups API not available in some environments; fail silently.
   }
   return [...files].sort();
 }
@@ -413,8 +305,6 @@ async function recordFileUsage(selectedFiles) {
   await extensionContext.workspaceState.update(LAST_SELECTED_FILES_STATE_KEY, selectedFiles);
 }
 
-// Builds a grouped QuickPick item list: Open Editors -> Recently Used -> All Files.
-// Each file appears in exactly one group (first match wins), so there's no duplication.
 function buildGroupedFileItems(workspacePath, allFiles, options = {}) {
   const { activeRelative = null, excludeFiles = [], preselectOpenFiles = true } = options;
   const excludeSet = new Set(excludeFiles);
@@ -453,10 +343,6 @@ function buildGroupedFileItems(workspacePath, allFiles, options = {}) {
   return items;
 }
 
-// Offers to reuse the last full file selection, when one exists and every
-// file in it still exists on disk. Returns:
-//  - an array of relative paths if the user chose to reuse it
-//  - null if the user wants to pick manually (or there's nothing to reuse)
 async function maybeReuseLastSelection(workspacePath) {
   const lastSelected = getLastSelectedFiles();
   if (!lastSelected || lastSelected.length === 0) return null;
@@ -486,7 +372,6 @@ async function maybeReuseLastSelection(workspacePath) {
 async function promptQuestionAndFiles(workspacePath, options = {}) {
   const { skipFiles = false } = options;
 
-  // Step 1: Question
   const question = await vscode.window.showInputBox({
     prompt: 'What would you like the AI to do?',
     placeHolder: 'Add error handling, refactor code, create a new module...',
@@ -502,7 +387,6 @@ async function promptQuestionAndFiles(workspacePath, options = {}) {
 
   let selectedFiles = [];
   if (!skipFiles) {
-    // Step 2: Main files — offer to reuse the last selection first.
     const reused = await maybeReuseLastSelection(workspacePath);
 
     if (reused) {
@@ -514,8 +398,6 @@ async function promptQuestionAndFiles(workspacePath, options = {}) {
         return null;
       }
 
-      // Pre-select active editor if open (only used inside the "All Files" group;
-      // if the active file is already open/MRU it's already pre-selected there).
       const activeFile = vscode.window.activeTextEditor?.document.fileName;
       const activeRelative = activeFile ? path.relative(workspacePath, activeFile) : null;
 
@@ -538,7 +420,6 @@ async function promptQuestionAndFiles(workspacePath, options = {}) {
     await recordFileUsage(selectedFiles);
   }
 
-  // Step 3: Context files
   let contextFiles = [];
   const pick = await vscode.window.showQuickPick(['No', 'Yes'], {
     placeHolder: 'Add context files (read-only reference)?',
@@ -566,27 +447,36 @@ async function promptQuestionAndFiles(workspacePath, options = {}) {
   return { question: question.trim(), selectedFiles, contextFiles };
 }
 
-function buildArgs(question, selectedFiles, contextFiles, workspacePath, overwrite) {
-  const args = [quoteArg(question)];
-  args.push(...getModelArgs());
-  args.push(...getProxyArgs());
-  args.push(...getProfileArgs());
-  args.push(...getChatIdArgs());
-  args.push('--non-interactive');
+async function runTaskInExtension({ question, selectedFiles, contextFiles, workspacePath, overwrite }) {
+  const channel = getOutputChannel();
+  channel.clear();
+  channel.show(true);
 
-  if (overwrite) args.push('--overwrite');
+  const modelKey = getEffectiveModelKey();
+  const chatId = getChatIdForModel(modelKey);
 
-  if (contextFiles.length > 0) {
-    args.push('--context');
-    contextFiles.forEach(f => args.push(quoteArg(path.join(workspacePath, f))));
-  }
+  const result = await core.runTask({
+    question,
+    files: selectedFiles,
+    contextFiles,
+    overwrite,
+    proxy: getProxy(),
+    model: modelKey,
+    profile: getCurrentProfile(),
+    chatId,
+    cwd: workspacePath,
+    nonInteractive: true,
+    onLog: logToChannel,
+    openReport: async (reportPath) => {
+      await vscode.env.openExternal(vscode.Uri.file(reportPath));
+    },
+  });
 
-  if (selectedFiles.length > 0) {
-    args.push('--');
-    selectedFiles.forEach(f => args.push(quoteArg(path.join(workspacePath, f))));
-  }
+  return result;
+}
 
-  return args;
+function buildArgsSummary(selectedFiles) {
+  return `${selectedFiles.length} file(s)`;
 }
 
 function activate(context) {
@@ -605,25 +495,27 @@ function activate(context) {
     }
 
     const workspacePath = workspaceFolder.uri.fsPath;
-    const result = await promptQuestionAndFiles(workspacePath);
-    if (!result) return;
+    const result0 = await promptQuestionAndFiles(workspacePath);
+    if (!result0) return;
 
-    const { question, selectedFiles, contextFiles } = result;
-    const args = buildArgs(question, selectedFiles, contextFiles, workspacePath, true);
-    const hadChatId = getChatIdArgs().length > 0;
+    const { question, selectedFiles, contextFiles } = result0;
 
-    vscode.window.showInformationMessage(`🤖 Sending to AI... (profile: ${getCurrentProfile()}, ${selectedFiles.length} file(s))`);
+    vscode.window.showInformationMessage(`🤖 Sending to AI... (profile: ${getCurrentProfile()}, ${buildArgsSummary(selectedFiles)})`);
 
     try {
-      const { stdout } = await runCodient(args, workspacePath);
-      vscode.window.showInformationMessage('✅ Codient applied changes.');
-      await maybeSyncChatId(stdout, hadChatId);
+      const result = await runTaskInExtension({ question, selectedFiles, contextFiles, workspacePath, overwrite: true });
+      if (result.success) {
+        vscode.window.showInformationMessage('✅ Codient applied changes.');
+      } else {
+        vscode.window.showErrorMessage(`Codient failed: ${result.error || 'unknown error'}`);
+      }
+      await maybeSyncChatId(result.chat);
     } catch (err) {
       vscode.window.showErrorMessage(`Codient failed: ${err.message}`);
     }
   }));
 
-  // Command 2: Preview — no overwrite, opens diff in browser
+  // Command 2: Preview — no overwrite, opens diff report
   context.subscriptions.push(vscode.commands.registerCommand('codient.preview', async () => {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
@@ -632,18 +524,19 @@ function activate(context) {
     }
 
     const workspacePath = workspaceFolder.uri.fsPath;
-    const result = await promptQuestionAndFiles(workspacePath);
-    if (!result) return;
+    const result0 = await promptQuestionAndFiles(workspacePath);
+    if (!result0) return;
 
-    const { question, selectedFiles, contextFiles } = result;
-    const args = buildArgs(question, selectedFiles, contextFiles, workspacePath, false);
-    const hadChatId = getChatIdArgs().length > 0;
+    const { question, selectedFiles, contextFiles } = result0;
 
-    vscode.window.showInformationMessage(`🔍 Previewing changes in browser... (profile: ${getCurrentProfile()})`);
+    vscode.window.showInformationMessage(`🔍 Previewing changes... (profile: ${getCurrentProfile()})`);
 
     try {
-      const { stdout } = await runCodient(args, workspacePath);
-      await maybeSyncChatId(stdout, hadChatId);
+      const result = await runTaskInExtension({ question, selectedFiles, contextFiles, workspacePath, overwrite: false });
+      if (!result.success) {
+        vscode.window.showErrorMessage(`Codient failed: ${result.error || 'unknown error'}`);
+      }
+      await maybeSyncChatId(result.chat);
     } catch (err) {
       vscode.window.showErrorMessage(`Codient failed: ${err.message}`);
     }
@@ -654,15 +547,16 @@ function activate(context) {
     const profile = getCurrentProfile();
     const modelKey = getEffectiveModelKey();
     const modelName = MODEL_DISPLAY_NAMES[modelKey] || modelKey;
-    const chatIdArgs = getChatIdArgs();
+    const chatId = getChatIdForModel(modelKey);
 
-    const chatInfo = chatIdArgs.length > 0
-      ? `continuing existing ${modelName} chat`
-      : `new ${modelName} chat`;
+    const chatInfo = chatId ? `continuing existing ${modelName} chat` : `new ${modelName} chat`;
 
     vscode.window.showInformationMessage(`🌐 Codient browser session opened (profile: ${profile}, ${chatInfo}). Login and close when done.`);
+    const channel = getOutputChannel();
+    channel.show(true);
+
     try {
-      await runCodient(['--browser', '--profile', quoteArg(profile), ...getModelArgs(), ...getProxyArgs(), ...chatIdArgs]);
+      await core.openBrowserSession({ model: modelKey, profile, proxy: getProxy(), chatId, onLog: logToChannel });
     } catch (err) {
       vscode.window.showErrorMessage(`Codient failed: ${err.message}`);
     }
@@ -780,7 +674,6 @@ function activate(context) {
   }));
 }
 
-// Find all code files in directory
 async function findCodeFiles(dir) {
   const codeExtensions = getCodeExtensions();
   const excludeDirs = getExcludeDirs();
