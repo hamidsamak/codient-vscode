@@ -1,6 +1,5 @@
 **/.git/**
 **/.vscode/**
-**/node_modules/**
 **/*.ts
 **/*.map
 **/src/**
