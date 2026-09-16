@@ -2,8 +2,8 @@
 **/.vscode/**
 **/*.ts
 **/*.map
-**/src/**
-**/test/**
+src/**
+test/**
 .vscodeignore
 .gitignore
 README.md

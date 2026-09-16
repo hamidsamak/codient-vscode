@@ -450,7 +450,6 @@ async function promptQuestionAndFiles(workspacePath, options = {}) {
 async function runTaskInExtension({ question, selectedFiles, contextFiles, workspacePath, overwrite }) {
   const channel = getOutputChannel();
   channel.clear();
-  channel.show(true);
 
   const modelKey = getEffectiveModelKey();
   const chatId = getChatIdForModel(modelKey);
@@ -553,7 +552,6 @@ function activate(context) {
 
     vscode.window.showInformationMessage(`🌐 Codient browser session opened (profile: ${profile}, ${chatInfo}). Login and close when done.`);
     const channel = getOutputChannel();
-    channel.show(true);
 
     try {
       await core.openBrowserSession({ model: modelKey, profile, proxy: getProxy(), chatId, onLog: logToChannel });

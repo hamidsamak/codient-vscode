@@ -20,22 +20,55 @@ function escapeHtmlLine(line) {
     .replace(/>/g, '&gt;');
 }
 
+function detectSystemTheme() {
+  try {
+    if (process.platform === 'win32') {
+      const out = require('child_process').execSync(
+        'reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" /v AppsUseLightTheme',
+        { encoding: 'utf8' }
+      );
+      const match = out.match(/0x(\d+)/);
+      if (match) return match[1] === '0' ? 'dark' : 'light';
+    } else if (process.platform === 'darwin') {
+      try {
+        require('child_process').execSync('defaults read -g AppleInterfaceStyle', { encoding: 'utf8' });
+        return 'dark';
+      } catch {
+        return 'light';
+      }
+    } else if (process.platform === 'linux') {
+      const out = require('child_process').execSync(
+        'gsettings get org.gnome.desktop.interface color-scheme',
+        { encoding: 'utf8' }
+      ).trim();
+      if (out.includes('dark')) return 'dark';
+      if (out.includes('light')) return 'light';
+    }
+  } catch {
+  }
+  return 'no-preference';
+}
+
 async function createContext(profileDir, proxy, { onLog = () => {} } = {}) {
   ensureDir(profileDir);
   onLog(`📁 Using profile: ${profileDir}`);
   onLog('🚀 Launching browser...');
 
-  const launchOptions = {
-    headless: false,
-    args: ['--disable-blink-features=AutomationControlled'],
-    viewport: null,
-    ignoreDefaultArgs: ['--enable-automation'],
-  };
+  const args = ['--disable-blink-features=AutomationControlled'];
 
   if (proxy) {
     onLog(`🌐 Using proxy: ${proxy}`);
-    launchOptions.proxy = { server: proxy };
+    args.push(`--proxy-server=${proxy}`);
   }
+
+  const launchOptions = {
+    headless: false,
+    args,
+    viewport: null,
+    colorScheme: detectSystemTheme(),
+    ignoreDefaultArgs: ['--enable-automation'],
+    locale: process.env.CODIENT_LOCALE || undefined,
+  };
 
   try {
     launchOptions.channel = 'chrome';
