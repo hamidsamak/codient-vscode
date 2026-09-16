@@ -7,7 +7,7 @@ const { buildTree } = require('./ignore');
 
 const RULES_BLOCK = `
 Rules:
-1. Return ONLY a single fenced XML code block (\`\`\`xml ... \`\`\`), no explanation or commentary.
+1. Return ONLY a single fenced XML code block. The response MUST start with \`\`\`xml on its own line and end with \`\`\` on its own line. No text, explanation, or commentary before the opening fence or after the closing fence.
 2. Wrap each file like: <file name="..." path="..." action="edit|create">code here</file>
    - Use action="edit" for existing files that are being modified.
    - Use action="create" for brand new files that do not exist yet.

@@ -33,7 +33,7 @@ const MODEL_CONFIG = {
     response_selector: '.markdown',
     send_selector: "button[aria-label='Send message']",
     send_index: 0,
-    done_selector_exists: "button[aria-label='Microphone']",
+    done_selector_exists: "button[aria-label='Dictate (^⇧D)'], button[aria-label='Microphone']",
     done_selector_not_exists: null,
     not_found_phrases: ['something went wrong', 'page not found', 'conversation not found'],
   },
@@ -42,7 +42,11 @@ const MODEL_CONFIG = {
     chat_url_template: (chatId) => `https://chat.deepseek.com/a/chat/s/${chatId}`,
     input_selector: 'textarea',
     fill: (el, text) => {
-      el.value = text;
+      const nativeSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLTextAreaElement.prototype,
+        'value'
+      ).set;
+      nativeSetter.call(el, text);
       el.dispatchEvent(new Event('input', { bubbles: true }));
     },
     response_selector: '.ds-markdown',
