@@ -1,83 +1,391 @@
 <!DOCTYPE html>
 <html lang="en" dir="ltr">
+
 <head>
-<meta charset="UTF-8" />
-<style>
-  :root {
-    --edit-color: var(--vscode-charts-blue, #3794ff);
-    --ctx-color: var(--vscode-charts-purple, #b180d7);
-  }
-  * { box-sizing: border-box; }
-  body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); background: var(--vscode-editor-background); margin:0; padding:0; display:flex; flex-direction:column; height:100vh; }
+  <meta charset="UTF-8" />
+  <style>
+    :root {
+      --edit-color: var(--vscode-charts-blue, #3794ff);
+      --ctx-color: var(--vscode-charts-purple, #b180d7);
+    }
 
-  #toolbar { display:flex; justify-content:flex-end; gap:4px; padding:4px 8px; border-bottom:1px solid var(--vscode-panel-border); }
-  .linkBtn { background:transparent; color: var(--vscode-textLink-foreground); border:none; padding:2px 6px; font-size:11px; font-family:inherit; cursor:pointer; border-radius:2px; }
-  .linkBtn:hover { background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,.2)); }
+    * {
+      box-sizing: border-box;
+    }
 
-  #log { flex:1; min-height:0; overflow-y:auto; padding:8px; font-size:12px; }
-  .msg { margin-bottom:8px; white-space:pre-wrap; word-wrap:break-word; }
-  .msg.user { color: var(--vscode-textLink-foreground); padding:2px 8px; border-inline-start:3px solid var(--vscode-textLink-foreground); }
-  .msg.error { color: var(--vscode-errorForeground); }
+    body {
+      font-family: var(--vscode-font-family);
+      color: var(--vscode-foreground);
+      background: var(--vscode-editor-background);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
 
-  .response { margin-bottom:10px; font-size:12px; line-height:1.5; word-wrap:break-word; }
-  .response p { margin:0 0 8px; }
-  .response ul, .response ol { margin:0 0 8px; padding-inline-start:20px; }
-  .response h1, .response h2, .response h3, .response h4, .response h5, .response h6 { margin:10px 0 6px; font-size:13px; }
-  .response code { font-family: var(--vscode-editor-font-family); background: var(--vscode-textCodeBlock-background); padding:1px 4px; border-radius:3px; }
-  .response pre { background: var(--vscode-textCodeBlock-background); padding:6px; border-radius:4px; overflow-x:auto; margin:0 0 8px; }
-  .response pre code { background:transparent; padding:0; }
-  .response blockquote { margin:0 0 8px; padding-inline-start:8px; border-inline-start:3px solid var(--vscode-panel-border); }
+    #toolbar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 4px;
+      padding: 4px 8px;
+      border-bottom: 1px solid var(--vscode-panel-border);
+    }
 
-  .response table { border-collapse:collapse; margin-bottom:8px; }
-  .response th, .response td { border:1px solid var(--vscode-panel-border); padding:2px 6px; }
-  .response a { color: var(--vscode-textLink-foreground); }
+    .linkBtn {
+      background: transparent;
+      color: var(--vscode-textLink-foreground);
+      border: none;
+      padding: 2px 6px;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      border-radius: 2px;
+    }
 
-  .diffBlock { margin-bottom:10px; border:1px solid var(--vscode-panel-border); border-radius:4px; overflow:hidden; }
-  .diffHeader { display:flex; align-items:center; gap:6px; background: var(--vscode-editorGroupHeader-tabsBackground); padding:4px 6px; font-size:11px; }
-  .diffTitle { flex:1; min-width:0; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .diffStats { white-space:nowrap; opacity:.9; }
-  .diffStats .a { color:#4caf50; }
-  .diffStats .d { color:#f44336; }
-  .diffCopy { background:transparent; color: var(--vscode-textLink-foreground); border:1px solid var(--vscode-panel-border); padding:1px 6px; font-size:11px; font-family:inherit; cursor:pointer; border-radius:3px; white-space:nowrap; }
-  .diffCopy:hover { background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,.2)); }
-  .diffBody { margin:0; padding:6px; font-family: var(--vscode-editor-font-family); font-size:11px; line-height:1.4; overflow-x:auto; }
-  .diffBody.collapsed { overflow-y:hidden; }
-  .diffMore { display:block; width:100%; background:transparent; color: var(--vscode-textLink-foreground); border:none; border-top:1px solid var(--vscode-panel-border); padding:3px 6px; font-size:11px; font-family:inherit; cursor:pointer; }
-  .diffMore:hover { background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,.2)); }
-  .diffLine { white-space:pre; }
-  .diffLine.add { color: #4caf50; }
-  .diffLine.del { color: #f44336; }
-  .diffLine.hunk { color: var(--vscode-textLink-foreground); }
+    .linkBtn:hover {
+      background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, .2));
+    }
 
-  #status { display:none; padding:4px 8px; font-size:11px; opacity:.8; }
-  #status.show { display:block; }
+    #toolbar.hidden {
+      display: none;
+    }
 
-  #inputArea { border-top:1px solid var(--vscode-panel-border); padding:6px; }
+    #log {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 8px;
+      font-size: 12px;
+    }
 
-  #chips { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px; }
-  #chips:empty { display:none; }
-  .chip { display:inline-flex; align-items:center; gap:2px; max-width:100%; padding:1px 3px 1px 8px; border-radius:10px; font-size:11px; background:transparent; color: var(--vscode-foreground); border:1px solid var(--chip-color); }
-  .chip.edit { --chip-color: var(--edit-color); }
-  .chip.context { --chip-color: var(--ctx-color); }
-  .chip .label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .chip .x { background:transparent; color: var(--vscode-foreground); border:none; padding:0 5px; margin:0; cursor:pointer; font-size:13px; line-height:1.2; opacity:.7; border-radius:50%; font-family:inherit; }
-  .chip .x:hover { opacity:1; background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,.25)); }
+    .msg {
+      margin-bottom: 8px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
 
-  textarea { display:block; width:100%; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border:1px solid var(--vscode-input-border, var(--vscode-panel-border)); resize:none; min-height:60px; max-height:200px; overflow-y:auto; padding:6px; font-family: var(--vscode-font-family); font-size:12px; line-height:1.4; }
-  textarea:focus { outline:1px solid var(--vscode-focusBorder); }
+    .msg.user {
+      color: var(--vscode-textLink-foreground);
+      padding: 2px 8px;
+      border-inline-start: 3px solid var(--vscode-textLink-foreground);
+    }
 
-  #fileBtns { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
-  .outlineBtn { background:transparent; color: var(--btn-color); border:1px solid var(--btn-color); padding:3px 8px; font-size:11px; font-family:inherit; cursor:pointer; border-radius:3px; }
-  .outlineBtn.edit { --btn-color: var(--edit-color); }
+    .msg.error {
+      color: var(--vscode-errorForeground);
+    }
 
-  .outlineBtn.context { --btn-color: var(--ctx-color); }
-  .outlineBtn:hover { background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,.2)); }
+    .response {
+      margin-bottom: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+      word-wrap: break-word;
+    }
 
-  #send { display:block; width:100%; margin-top:6px; padding:6px 8px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); border:none; border-radius:3px; cursor:pointer; font-family:inherit; font-size:12px; font-weight:600; }
-  #send:hover:not(:disabled) { background: var(--vscode-button-hoverBackground); }
-  #send:disabled { opacity:.5; cursor:default; }
-</style>
+    .response p {
+      margin: 0 0 8px;
+    }
+
+    .response ul,
+    .response ol {
+      margin: 0 0 8px;
+      padding-inline-start: 20px;
+    }
+
+    .response h1,
+    .response h2,
+    .response h3,
+    .response h4,
+    .response h5,
+    .response h6 {
+      margin: 10px 0 6px;
+      font-size: 13px;
+    }
+
+    .response code {
+      font-family: var(--vscode-editor-font-family);
+      background: var(--vscode-textCodeBlock-background);
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    .response pre {
+      background: var(--vscode-textCodeBlock-background);
+      padding: 6px;
+      border-radius: 4px;
+      overflow-x: auto;
+      margin: 0 0 8px;
+    }
+
+    .response pre code {
+      background: transparent;
+      padding: 0;
+    }
+
+    .response blockquote {
+      margin: 0 0 8px;
+      padding-inline-start: 8px;
+      border-inline-start: 3px solid var(--vscode-panel-border);
+    }
+
+    .response table {
+      border-collapse: collapse;
+      margin-bottom: 8px;
+    }
+
+    .response th,
+    .response td {
+      border: 1px solid var(--vscode-panel-border);
+      padding: 2px 6px;
+    }
+
+    .response a {
+      color: var(--vscode-textLink-foreground);
+    }
+
+    .diffBlock {
+      margin-bottom: 10px;
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .diffHeader {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--vscode-editorGroupHeader-tabsBackground);
+      padding: 4px 6px;
+      font-size: 11px;
+    }
+
+    .diffTitle {
+      flex: 1;
+      min-width: 0;
+      font-weight: bold;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .diffStats {
+      white-space: nowrap;
+      opacity: .9;
+    }
+
+    .diffStats .a {
+      color: #4caf50;
+    }
+
+    .diffStats .d {
+      color: #f44336;
+    }
+
+    .diffBody {
+      margin: 0;
+      padding: 6px;
+      font-family: var(--vscode-editor-font-family);
+      font-size: 11px;
+      line-height: 1.4;
+      overflow-x: auto;
+    }
+
+    .diffBody.collapsed {
+      overflow-y: hidden;
+    }
+
+    .diffMore {
+      display: block;
+      width: 100%;
+      background: transparent;
+      color: var(--vscode-textLink-foreground);
+      border: none;
+      border-top: 1px solid var(--vscode-panel-border);
+      padding: 3px 6px;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    .diffMore:hover {
+      background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, .2));
+    }
+
+    .diffLine {
+      display: flex;
+      white-space: pre;
+    }
+
+    .diffNum {
+      flex: none;
+      min-width: 5ch;
+      padding-inline-end: 10px;
+      text-align: right;
+      opacity: .5;
+      user-select: none;
+    }
+
+    .diffLine.add {
+      color: #4caf50;
+    }
+
+    .diffLine.del {
+      color: #f44336;
+    }
+
+    .diffLine.sep {
+      color: var(--vscode-descriptionForeground, #888);
+    }
+
+    #status {
+      display: none;
+      padding: 4px 8px;
+      font-size: 11px;
+      opacity: .8;
+    }
+
+    #status.show {
+      display: block;
+    }
+
+    #inputArea {
+      border-top: 1px solid var(--vscode-panel-border);
+      padding: 6px;
+    }
+
+    #chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 6px;
+    }
+
+    #chips:empty {
+      display: none;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      max-width: 100%;
+      padding: 1px 3px 1px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      background: transparent;
+      color: var(--vscode-foreground);
+      border: 1px solid var(--chip-color);
+    }
+
+    .chip.edit {
+      --chip-color: var(--edit-color);
+    }
+
+    .chip.context {
+      --chip-color: var(--ctx-color);
+    }
+
+    .chip .label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .chip .x {
+      background: transparent;
+      color: var(--vscode-foreground);
+      border: none;
+      padding: 0 5px;
+      margin: 0;
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1.2;
+      opacity: .7;
+      border-radius: 50%;
+      font-family: inherit;
+    }
+
+    .chip .x:hover {
+      opacity: 1;
+      background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, .25));
+    }
+
+    textarea {
+      display: block;
+      width: 100%;
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+      resize: none;
+      min-height: 60px;
+      max-height: 200px;
+      overflow-y: auto;
+      padding: 6px;
+      font-family: var(--vscode-font-family);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    textarea:focus {
+      outline: 1px solid var(--vscode-focusBorder);
+    }
+
+    #fileBtns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .outlineBtn {
+      background: transparent;
+      color: var(--btn-color);
+      border: 1px solid var(--btn-color);
+      padding: 3px 8px;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+
+    .outlineBtn.edit {
+      --btn-color: var(--edit-color);
+    }
+
+    .outlineBtn.context {
+      --btn-color: var(--ctx-color);
+    }
+
+    .outlineBtn:hover {
+      background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, .2));
+    }
+
+    #send {
+      display: block;
+      width: 100%;
+      margin-top: 6px;
+      padding: 6px 8px;
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    #send:hover:not(:disabled) {
+      background: var(--vscode-button-hoverBackground);
+    }
+
+    #send:disabled {
+      opacity: .5;
+      cursor: default;
+    }
+  </style>
 </head>
+
 <body>
   <div id="toolbar">
     <button type="button" class="linkBtn" id="saveChat" title="Save this chat as an HTML file">Save as HTML</button>
@@ -87,536 +395,582 @@
   <div id="status">⏳ Waiting for the AI response…</div>
   <div id="inputArea">
     <div id="chips"></div>
-    <textarea id="prompt" dir="auto" placeholder="Enter your question or instruction... (Ctrl+Enter to send)"></textarea>
+    <textarea id="prompt" dir="auto"
+      placeholder="Enter your question or instruction... (Ctrl+Enter to send)"></textarea>
     <div id="fileBtns">
-      <button type="button" class="outlineBtn edit" id="addEditFile" title="Files the AI may modify">+ Edit file</button>
-      <button type="button" class="outlineBtn context" id="addContextFile" title="Read-only reference files">+ Context file</button>
+      <button type="button" class="outlineBtn edit" id="addEditFile" title="Files the AI may modify">+ Edit
+        files</button>
+      <button type="button" class="outlineBtn context" id="addContextFile" title="Read-only reference files">+ Context
+        files</button>
     </div>
     <button type="button" id="send">Send</button>
   </div>
 
-<script>
-  const vscode = acquireVsCodeApi();
-  const logEl = document.getElementById('log');
-  const chipsEl = document.getElementById('chips');
-  const promptEl = document.getElementById('prompt');
-  const sendEl = document.getElementById('send');
-  const statusEl = document.getElementById('status');
+  <script>
+    const vscode = acquireVsCodeApi();
+    const logEl = document.getElementById('log');
+    const chipsEl = document.getElementById('chips');
+    const promptEl = document.getElementById('prompt');
+    const sendEl = document.getElementById('send');
+    const statusEl = document.getElementById('status');
+    const toolbarEl = document.getElementById('toolbar');
 
 
-  const MAX_HISTORY = 500;
-  const MAX_PROMPT_HEIGHT = 200;
-  const saved = vscode.getState() || {};
-  let editFiles = saved.editFiles || [];
-  let contextFiles = saved.contextFiles || [];
-  let history = saved.history || [];
-  let activeFile = null;
-  let excludedActive = null;
-  let busy = false;
+    const MAX_HISTORY = 500;
+    const MAX_PROMPT_HEIGHT = 200;
+    const saved = vscode.getState() || {};
+    let editFiles = saved.editFiles || [];
+    let contextFiles = saved.contextFiles || [];
+    let history = saved.history || [];
+    let activeFile = null;
+    let excludedActive = null;
+    let busy = false;
 
-  function saveState() {
-    if (history.length > MAX_HISTORY) history = history.slice(-MAX_HISTORY);
-    vscode.setState({ editFiles, contextFiles, history });
-  }
-
-  function scrollToEnd() {
-    logEl.scrollTop = logEl.scrollHeight;
-  }
-
-  // ---------- Files (chips) ----------
-
-  function getEffectiveEditFiles() {
-    const list = [];
-    if (activeFile && activeFile !== excludedActive && !contextFiles.includes(activeFile)) {
-      list.push(activeFile);
+    // Save/Clear buttons are only useful when there is something in the chat
+    function updateToolbar() {
+      toolbarEl.classList.toggle('hidden', history.length === 0);
     }
-    editFiles.forEach(f => { if (!list.includes(f)) list.push(f); });
-    return list;
-  }
 
-  function makeChip(file, kind, title, onRemove) {
+    function saveState() {
+      if (history.length > MAX_HISTORY) history = history.slice(-MAX_HISTORY);
+      vscode.setState({ editFiles, contextFiles, history });
+      updateToolbar();
+    }
 
-    const c = document.createElement('span');
-    c.className = 'chip ' + kind;
-    c.title = title;
+    function scrollToEnd() {
+      logEl.scrollTop = logEl.scrollHeight;
+    }
 
-    const label = document.createElement('span');
-    label.className = 'label';
-    label.textContent = file;
-    c.appendChild(label);
+    // ---------- Files (chips) ----------
 
-    const x = document.createElement('button');
-    x.type = 'button';
-    x.className = 'x';
-    x.title = 'Remove';
-    x.textContent = '×';
-    x.addEventListener('click', onRemove);
-    c.appendChild(x);
-
-    return c;
-  }
-
-  function renderChips() {
-    chipsEl.innerHTML = '';
-
-    getEffectiveEditFiles().forEach(f => {
-      const isCurrent = f === activeFile && !editFiles.includes(f);
-      const title = 'Edit file' + (isCurrent ? ' (current editor)' : '') + ': ' + f;
-      chipsEl.appendChild(makeChip(f, 'edit', title, () => {
-        editFiles = editFiles.filter(x => x !== f);
-        if (f === activeFile) excludedActive = f;
-        renderChips();
-        saveState();
-      }));
-
-    });
-
-    contextFiles.forEach(f => {
-      chipsEl.appendChild(makeChip(f, 'context', 'Context file (read-only): ' + f, () => {
-        contextFiles = contextFiles.filter(x => x !== f);
-        renderChips();
-        saveState();
-      }));
-    });
-  }
-
-  // ---------- Chat rendering ----------
-
-  function renderLine(text, cls) {
-    const d = document.createElement('div');
-    d.className = 'msg' + (cls ? ' ' + cls : '');
-    d.setAttribute('dir', 'auto');
-    d.textContent = text;
-    logEl.appendChild(d);
-    scrollToEnd();
-  }
-
-  function addLine(text, cls) {
-    renderLine(text, cls);
-    history.push({ kind: 'line', text: text, cls: cls || '' });
-    saveState();
-  }
-
-  const ALLOWED_TAGS = new Set([
-    'P', 'BR', 'UL', 'OL', 'LI', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'DEL', 'CODE', 'PRE',
-    'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'HR',
-    'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'A'
-
-  ]);
-  const DROP_TAGS = new Set([
-    'SCRIPT', 'STYLE', 'BUTTON', 'SVG', 'IFRAME', 'OBJECT', 'EMBED', 'INPUT', 'TEXTAREA',
-    'SELECT', 'FORM', 'IMG', 'VIDEO', 'AUDIO', 'CANVAS', 'NOSCRIPT', 'TEMPLATE', 'LINK', 'META'
-  ]);
-  const AUTO_DIR_TAGS = new Set(['P', 'LI', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'TD', 'TH']);
-
-  function sanitizeInto(src, dest) {
-    src.childNodes.forEach(node => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        dest.appendChild(document.createTextNode(node.textContent));
-      } else if (node.nodeType === Node.ELEMENT_NODE) {
-        const tag = node.tagName.toUpperCase();
-        if (DROP_TAGS.has(tag)) return;
-        if (ALLOWED_TAGS.has(tag)) {
-          const el = document.createElement(tag.toLowerCase());
-          if (tag === 'A') {
-            const href = node.getAttribute('href') || '';
-            if (/^https?:\/\//i.test(href)) {
-              el.setAttribute('href', href);
-              el.setAttribute('rel', 'noopener noreferrer');
-            }
-          }
-          if (AUTO_DIR_TAGS.has(tag)) el.setAttribute('dir', 'auto');
-          sanitizeInto(node, el);
-          dest.appendChild(el);
-        } else {
-          sanitizeInto(node, dest);
-        }
+    function getEffectiveEditFiles() {
+      const list = [];
+      if (activeFile && activeFile !== excludedActive && !contextFiles.includes(activeFile)) {
+        list.push(activeFile);
       }
-    });
-  }
-
-
-  // Rebuilds the AI response using a strict whitelist of tags (no attributes, no scripts).
-  function sanitizeHtml(rawHtml) {
-    const doc = new DOMParser().parseFromString(rawHtml || '', 'text/html');
-    const out = document.createElement('div');
-    sanitizeInto(doc.body, out);
-    if (!out.textContent.trim()) return '';
-    return out.innerHTML;
-  }
-
-  function renderResponse(html) {
-    const d = document.createElement('div');
-    d.className = 'response';
-    d.innerHTML = html;
-    logEl.appendChild(d);
-    scrollToEnd();
-  }
-
-  function addResponse(html) {
-    renderResponse(html);
-    history.push({ kind: 'html', html: html });
-    saveState();
-  }
-
-  function classifyDiffLine(line) {
-    if (line.startsWith('+++') || line.startsWith('---')) return '';
-    if (line.startsWith('@@')) return 'hunk';
-    if (line.startsWith('+')) return 'add';
-    if (line.startsWith('-')) return 'del';
-    return '';
-  }
-
-
-  const COLLAPSE_LINES_CREATE = 10;
-  const COLLAPSE_LINES_EDIT = 25;
-  const pendingCopies = new Map();
-
-  function countDiffStats(lines) {
-    let a = 0, d = 0;
-    lines.forEach(l => {
-      const c = classifyDiffLine(l);
-      if (c === 'add') a++;
-      else if (c === 'del') d++;
-    });
-    return { a, d };
-  }
-
-
-  // For new files: rebuild the plain file content from a diff-style text (if it is one).
-  function extractNewFileContent(text) {
-    const src = text || '';
-    const lines = src.split('\n');
-    const nonEmpty = lines.filter(l => l.length > 0);
-    const looksLikeDiff =
-      lines.some(l => l.startsWith('@@') || l.startsWith('+++ ') || l.startsWith('--- ')) ||
-      (nonEmpty.length > 0 && nonEmpty.every(l => l.startsWith('+')));
-    if (!looksLikeDiff) return src;
-    return lines
-      .filter(l => l.startsWith('+') && !l.startsWith('+++ '))
-      .map(l => l.slice(1))
-      .join('\n');
-  }
-
-  function fallbackCopy(text) {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    try { document.execCommand('copy'); } catch (e) { /* ignore */ }
-    document.body.removeChild(ta);
-  }
-
-  function copyText(text) {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      return navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+      editFiles.forEach(f => { if (!list.includes(f)) list.push(f); });
+      return list;
     }
-    fallbackCopy(text);
 
-    return Promise.resolve();
-  }
+    function makeChip(file, kind, title, onRemove) {
 
-  function renderDiffBlock(fileName, action, text) {
-    const isCreate = action === 'create';
-    const block = document.createElement('div');
-    block.className = 'diffBlock';
+      const c = document.createElement('span');
+      c.className = 'chip ' + kind;
+      c.title = title;
 
-    const lines = (text || '').split('\n');
-    if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
-    const stats = countDiffStats(lines);
+      const label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = file;
+      c.appendChild(label);
 
-    // Header: title, stats, copy button
-    const header = document.createElement('div');
-    header.className = 'diffHeader';
+      const x = document.createElement('button');
+      x.type = 'button';
+      x.className = 'x';
+      x.title = 'Remove';
+      x.textContent = '×';
+      x.addEventListener('click', onRemove);
+      c.appendChild(x);
 
-    const title = document.createElement('span');
-    title.className = 'diffTitle';
-    title.title = fileName;
-    title.textContent = (isCreate ? 'New file: ' : 'Edited: ') + fileName;
-    header.appendChild(title);
+      return c;
+    }
 
-    const statsEl = document.createElement('span');
-    statsEl.className = 'diffStats';
-    const addEl = document.createElement('span');
-    addEl.className = 'a';
-    addEl.textContent = '+' + stats.a;
-    const delEl = document.createElement('span');
-    delEl.className = 'd';
-    delEl.textContent = ' \u2212' + stats.d;
-    statsEl.appendChild(addEl);
-    if (stats.d > 0) statsEl.appendChild(delEl);
+    function renderChips() {
+      chipsEl.innerHTML = '';
 
-    header.appendChild(statsEl);
+      getEffectiveEditFiles().forEach(f => {
+        const isCurrent = f === activeFile && !editFiles.includes(f);
+        const title = 'Edit file' + (isCurrent ? ' (current editor)' : '') + ': ' + f;
+        chipsEl.appendChild(makeChip(f, 'edit', title, () => {
+          editFiles = editFiles.filter(x => x !== f);
+          if (f === activeFile) excludedActive = f;
+          renderChips();
+          saveState();
+        }));
 
-    const copyBtn = document.createElement('button');
-    copyBtn.type = 'button';
-    copyBtn.className = 'diffCopy';
-    const copyLabel = 'Copy source';
-    copyBtn.textContent = copyLabel;
-    copyBtn.title = 'Copy the full source of this file';
-
-    const flashCopy = (label) => {
-
-      copyBtn.textContent = label;
-      setTimeout(() => { copyBtn.textContent = copyLabel; }, 1500);
-    };
-
-    copyBtn.addEventListener('click', () => {
-      pendingCopies.set(fileName, (ok) => {
-        if (ok) {
-          flashCopy('Copied \u2713');
-        } else if (isCreate) {
-          copyText(extractNewFileContent(text)).then(() => flashCopy('Copied \u2713'));
-        } else {
-          flashCopy('Copy failed');
-        }
       });
-      vscode.postMessage({ type: 'copyFile', fileName: fileName });
-    });
-    header.appendChild(copyBtn);
 
-    block.appendChild(header);
-
-    // Body
-    const body = document.createElement('div');
-    body.className = 'diffBody';
-
-    lines.forEach(line => {
-      const lineEl = document.createElement('div');
-      const cls = classifyDiffLine(line);
-      lineEl.className = 'diffLine' + (cls ? ' ' + cls : '');
-      lineEl.textContent = line;
-      body.appendChild(lineEl);
-    });
-
-    block.appendChild(body);
-
-
-    // Collapse long content with "Show more / Show less"
-    const limit = isCreate ? COLLAPSE_LINES_CREATE : COLLAPSE_LINES_EDIT;
-    if (lines.length > limit) {
-      const hiddenCount = lines.length - limit;
-      let collapsed = true;
-
-      const applyState = () => {
-        if (collapsed) {
-          body.classList.add('collapsed');
-          body.style.maxHeight = 'calc(' + (limit * 1.4) + 'em + 12px)';
-          moreBtn.textContent = 'Show more (' + hiddenCount + ' more lines)';
-        } else {
-          body.classList.remove('collapsed');
-          body.style.maxHeight = '';
-          moreBtn.textContent = 'Show less';
-        }
-      };
-
-      const moreBtn = document.createElement('button');
-      moreBtn.type = 'button';
-      moreBtn.className = 'diffMore';
-      moreBtn.addEventListener('click', () => {
-        collapsed = !collapsed;
-        applyState();
+      contextFiles.forEach(f => {
+        chipsEl.appendChild(makeChip(f, 'context', 'Context file (read-only): ' + f, () => {
+          contextFiles = contextFiles.filter(x => x !== f);
+          renderChips();
+          saveState();
+        }));
       });
-      block.appendChild(moreBtn);
-      applyState();
     }
 
-    logEl.appendChild(block);
-    scrollToEnd();
+    // ---------- Chat rendering ----------
 
-  }
-
-  function addDiffBlock(fileName, action, text) {
-    renderDiffBlock(fileName, action, text);
-    history.push({ kind: 'diff', fileName: fileName, action: action, text: text || '' });
-    saveState();
-  }
-
-
-  // ---------- Export as HTML ----------
-
-  function escapeHtml(s) {
-    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
-
-  function buildExportHtml() {
-    const parts = [];
-    history.forEach(h => {
-      if (h.kind === 'diff') {
-        const lines = (h.text || '').split('\n').map(line => {
-          const cls = classifyDiffLine(line);
-          return '<div class="diffLine' + (cls ? ' ' + cls : '') + '">' + escapeHtml(line) + '</div>';
-        }).join('');
-        parts.push(
-          '<div class="diffBlock"><div class="diffHeader">' +
-          (h.action === 'create' ? 'New file: ' : 'Edited: ') + escapeHtml(h.fileName) +
-          '</div><div class="diffBody">' + lines + '</div></div>'
-        );
-      } else if (h.kind === 'html') {
-        parts.push('<div class="response">' + h.html + '</div>');
-      } else {
-        parts.push('<div class="msg' + (h.cls ? ' ' + h.cls : '') + '" dir="auto">' + escapeHtml(h.text) + '</div>');
-      }
-    });
-
-    const css = [
-      'body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:900px;margin:24px auto;padding:0 16px;line-height:1.55;color:#1f2328;background:#fff}',
-      'h1{font-size:20px}',
-      '.msg{margin:10px 0;white-space:pre-wrap}',
-      '.msg.user{padding:6px 10px;border-inline-start:3px solid #0969da;background:#f0f6ff}',
-      '.msg.error{color:#c62828}',
-
-      '.response{margin:10px 0}',
-      '.response pre,.diffBody{background:#f6f8fa;padding:8px;overflow-x:auto;border-radius:4px;font-family:ui-monospace,Consolas,monospace;font-size:12px}',
-      '.response code{font-family:ui-monospace,Consolas,monospace;background:#f6f8fa;padding:1px 4px;border-radius:3px}',
-      '.response pre code{padding:0;background:transparent}',
-      '.response table{border-collapse:collapse}',
-      '.response th,.response td{border:1px solid #d0d7de;padding:3px 8px}',
-      '.diffBlock{margin:12px 0;border:1px solid #d0d7de;border-radius:4px;overflow:hidden}',
-      '.diffHeader{background:#eaeef2;padding:5px 8px;font-size:12px;font-weight:bold}',
-      '.diffBody{margin:0;border-radius:0}',
-      '.diffLine{white-space:pre}',
-      '.diffLine.add{color:#2e7d32}',
-      '.diffLine.del{color:#c62828}',
-      '.diffLine.hunk{color:#0969da}',
-      '@media (prefers-color-scheme: dark){',
-      'body{color:#e6edf3;background:#0d1117}',
-      '.msg.user{background:#16233a;border-color:#58a6ff}',
-      '.response pre,.diffBody,.response code{background:#161b22}',
-      '.response th,.response td,.diffBlock{border-color:#30363d}',
-      '.diffHeader{background:#161b22}',
-      '.diffLine.add{color:#7ee787}',
-      '.diffLine.del{color:#ff7b72}',
-      '.diffLine.hunk{color:#79c0ff}',
-      '}'
-    ].join('\n');
-
-    return [
-      '<!DOCTYPE html>',
-      '<html lang="en">',
-      '<head>',
-      '<meta charset="UTF-8">',
-      '<title>Codient Chat</title>',
-      '<style>',
-
-      css,
-      '</style>',
-      '</head>',
-      '<body>',
-      '<h1>Codient Chat</h1>',
-      parts.join('\n'),
-      '</body>',
-      '</html>',
-      ''
-    ].join('\n');
-  }
-
-  // ---------- Busy state / sending ----------
-
-  function setBusy(value) {
-    busy = Boolean(value);
-    sendEl.disabled = busy;
-    statusEl.classList.toggle('show', busy);
-    if (busy) scrollToEnd();
-  }
-
-  function autoSizePrompt() {
-    promptEl.style.height = 'auto';
-    promptEl.style.height = Math.min(promptEl.scrollHeight + 2, MAX_PROMPT_HEIGHT) + 'px';
-  }
-
-  function sendMessage() {
-    if (busy) return;
-    const text = promptEl.value.trim();
-    if (!text) return;
-    addLine(text, 'user');
-    setBusy(true);
-
-    vscode.postMessage({ type: 'ask', text, files: getEffectiveEditFiles(), contextFiles });
-    promptEl.value = '';
-    autoSizePrompt();
-  }
-
-  // ---------- Events ----------
-
-  document.getElementById('addEditFile').addEventListener('click', () => {
-    vscode.postMessage({ type: 'pickFiles', target: 'edit' });
-  });
-  document.getElementById('addContextFile').addEventListener('click', () => {
-    vscode.postMessage({ type: 'pickFiles', target: 'context' });
-  });
-  document.getElementById('clearChat').addEventListener('click', () => {
-    history = [];
-    logEl.innerHTML = '';
-    saveState();
-  });
-  document.getElementById('saveChat').addEventListener('click', () => {
-    if (history.length === 0) return;
-    vscode.postMessage({ type: 'saveHtml', html: buildExportHtml() });
-  });
-
-  sendEl.addEventListener('click', sendMessage);
-  promptEl.addEventListener('input', autoSizePrompt);
-  promptEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      sendMessage();
+    function renderLine(text, cls) {
+      const d = document.createElement('div');
+      d.className = 'msg' + (cls ? ' ' + cls : '');
+      d.setAttribute('dir', 'auto');
+      d.textContent = text;
+      logEl.appendChild(d);
+      scrollToEnd();
     }
-  });
 
-
-  window.addEventListener('message', (event) => {
-    const msg = event.data;
-    if (msg.type === 'filesPicked') {
-      const files = msg.files || [];
-      if (msg.target === 'edit') {
-        editFiles = [...new Set([...editFiles, ...files])];
-        contextFiles = contextFiles.filter(f => !files.includes(f));
-      } else {
-        contextFiles = [...new Set([...contextFiles, ...files])];
-        editFiles = editFiles.filter(f => !files.includes(f));
-      }
-      renderChips();
+    function addLine(text, cls) {
+      renderLine(text, cls);
+      history.push({ kind: 'line', text: text, cls: cls || '' });
       saveState();
-    } else if (msg.type === 'activeFile') {
-      activeFile = msg.file;
-      if (excludedActive && excludedActive !== activeFile) excludedActive = null;
-      renderChips();
-    } else if (msg.type === 'busy') {
-      setBusy(msg.value);
-    } else if (msg.type === 'done') {
-      const html = sanitizeHtml(msg.explanationHtml);
-      const diffs = msg.diffs || [];
-      if (html) addResponse(html);
-      diffs.forEach(d => addDiffBlock(d.fileName, d.action, d.text));
-      if (!html && diffs.length === 0) addLine('No changes were made.');
-    } else if (msg.type === 'error') {
-      addLine('Error: ' + msg.text, 'error');
-    } else if (msg.type === 'focusPrompt') {
-      promptEl.focus();
-    } else if (msg.type === 'copyResult') {
-      const cb = pendingCopies.get(msg.fileName);
-      if (cb) {
-        pendingCopies.delete(msg.fileName);
-        cb(Boolean(msg.ok));
-      }
     }
-  });
 
-  // Restore previous chat history and selected files
-  history.forEach(h => {
+    const ALLOWED_TAGS = new Set([
+      'P', 'BR', 'UL', 'OL', 'LI', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'DEL', 'CODE', 'PRE',
+      'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'HR',
+      'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'A'
 
-    if (h.kind === 'diff') renderDiffBlock(h.fileName, h.action, h.text);
-    else if (h.kind === 'html') renderResponse(h.html);
-    else renderLine(h.text, h.cls);
-  });
-  renderChips();
-  autoSizePrompt();
-  scrollToEnd();
+    ]);
+    const DROP_TAGS = new Set([
+      'SCRIPT', 'STYLE', 'BUTTON', 'SVG', 'IFRAME', 'OBJECT', 'EMBED', 'INPUT', 'TEXTAREA',
+      'SELECT', 'FORM', 'IMG', 'VIDEO', 'AUDIO', 'CANVAS', 'NOSCRIPT', 'TEMPLATE', 'LINK', 'META'
+    ]);
+    const AUTO_DIR_TAGS = new Set(['P', 'LI', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'TD', 'TH']);
 
-  vscode.postMessage({ type: 'ready' });
-</script>
+    function sanitizeInto(src, dest) {
+      src.childNodes.forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          dest.appendChild(document.createTextNode(node.textContent));
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          const tag = node.tagName.toUpperCase();
+          if (DROP_TAGS.has(tag)) return;
+          if (ALLOWED_TAGS.has(tag)) {
+            const el = document.createElement(tag.toLowerCase());
+            if (tag === 'A') {
+              const href = node.getAttribute('href') || '';
+              if (/^https?:\/\//i.test(href)) {
+                el.setAttribute('href', href);
+                el.setAttribute('rel', 'noopener noreferrer');
+              }
+            }
+            if (AUTO_DIR_TAGS.has(tag)) el.setAttribute('dir', 'auto');
+            sanitizeInto(node, el);
+            dest.appendChild(el);
+          } else {
+            sanitizeInto(node, dest);
+          }
+        }
+      });
+    }
+
+
+    // Rebuilds the AI response using a strict whitelist of tags (no attributes, no scripts).
+    function sanitizeHtml(rawHtml) {
+      const doc = new DOMParser().parseFromString(rawHtml || '', 'text/html');
+      const out = document.createElement('div');
+      sanitizeInto(doc.body, out);
+      if (!out.textContent.trim()) return '';
+      return out.innerHTML;
+    }
+
+    function renderResponse(html) {
+      const d = document.createElement('div');
+      d.className = 'response';
+      d.innerHTML = html;
+      logEl.appendChild(d);
+      scrollToEnd();
+    }
+
+    function addResponse(html) {
+      renderResponse(html);
+      history.push({ kind: 'html', html: html });
+      saveState();
+    }
+
+    function classifyDiffLine(line) {
+      if (line.startsWith('+++') || line.startsWith('---')) return '';
+      if (line.startsWith('@@')) return 'hunk';
+      if (line.startsWith('+')) return 'add';
+      if (line.startsWith('-')) return 'del';
+      return '';
+    }
+
+
+    const COLLAPSE_LINES_CREATE = 10;
+    const COLLAPSE_LINES_EDIT = 25;
+    const CONTEXT_LINES = 3;
+
+    // Keeps only the changed rows plus a few context rows around them.
+    // Skipped parts are replaced by a separator row.
+    function trimRows(rows) {
+      const keep = new Array(rows.length).fill(false);
+      rows.forEach((r, i) => {
+        if (r.cls === 'add' || r.cls === 'del') {
+          const from = Math.max(0, i - CONTEXT_LINES);
+          const to = Math.min(rows.length - 1, i + CONTEXT_LINES);
+          for (let j = from; j <= to; j++) keep[j] = true;
+        }
+      });
+
+      const out = [];
+      let gap = false;
+      rows.forEach((r, i) => {
+        if (r.brk) gap = true;
+        if (!keep[i]) { gap = true; return; }
+        if (gap && out.length) out.push({ cls: 'sep', num: '', text: '\u22EF' });
+        gap = false;
+        out.push(r);
+      });
+      return out;
+    }
+
+    // Converts the diff text into rows ({ cls, num, text }) that show only the
+    // changes (plus a few context lines) together with real file line numbers.
+    function buildDiffRows(action, text) {
+      const lines = (text || '').split('\n');
+      if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
+      const rows = [];
+
+
+      // Unified format with "@@ -a,b +c,d @@" headers: line numbers come from the headers
+      if (lines.some(l => l.startsWith('@@'))) {
+        let oldNo = 0, newNo = 0, inHunk = false, brk = false;
+        lines.forEach(line => {
+          if (line.startsWith('@@')) {
+            const m = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
+            oldNo = m ? parseInt(m[1], 10) : 0;
+            newNo = m ? parseInt(m[2], 10) : 0;
+            inHunk = true;
+            brk = true;
+            return;
+          }
+          if (!inHunk || line.startsWith('\\')) return;
+          let row;
+
+          if (line.startsWith('+')) row = { cls: 'add', num: newNo++, text: line };
+          else if (line.startsWith('-')) row = { cls: 'del', num: oldNo++, text: line };
+          else {
+            row = { cls: '', num: newNo, text: line.length ? line : ' ' };
+            oldNo++;
+            newNo++;
+          }
+          if (brk) { row.brk = true; brk = false; }
+          rows.push(row);
+        });
+        return trimRows(rows);
+      }
+
+      // New file: every line is an addition, numbered from 1
+      const nonEmpty = lines.filter(l => l.length > 0);
+      const allAdd = nonEmpty.length > 0 && nonEmpty.every(l => l.startsWith('+'));
+
+      if (allAdd || action === 'create') {
+        let n = 1;
+        lines.forEach(l => {
+          if (allAdd && l.startsWith('+++ ')) return;
+          rows.push({ cls: 'add', num: n++, text: '+' + (allAdd ? l.slice(1) : l) });
+        });
+        return rows;
+      }
+
+      // Full-file format (every line starts with "+", "-" or " "):
+      // number the lines here, then keep only the changes with some context.
+      let oldNo = 1, newNo = 1;
+      lines.forEach(l => {
+        if (l.startsWith('+')) {
+          rows.push({ cls: 'add', num: newNo++, text: l });
+        } else if (l.startsWith('-')) {
+          rows.push({ cls: 'del', num: oldNo++, text: l });
+        } else {
+          rows.push({ cls: '', num: newNo++, text: l.length ? l : ' ' });
+          oldNo++;
+        }
+      });
+      return trimRows(rows);
+    }
+
+    function countDiffStats(rows) {
+      let a = 0, d = 0;
+      rows.forEach(r => {
+        if (r.cls === 'add') a++;
+        else if (r.cls === 'del') d++;
+      });
+      return { a, d };
+    }
+
+    function renderDiffBlock(fileName, action, text) {
+      const isCreate = action === 'create';
+      const block = document.createElement('div');
+      block.className = 'diffBlock';
+
+      const lines = buildDiffRows(action, text);
+      const stats = countDiffStats(lines);
+
+      // Header: title, stats, copy button
+      const header = document.createElement('div');
+      header.className = 'diffHeader';
+
+      const title = document.createElement('span');
+      title.className = 'diffTitle';
+      title.title = fileName;
+      title.textContent = (isCreate ? 'New file: ' : 'Edited: ') + fileName;
+      header.appendChild(title);
+
+      const statsEl = document.createElement('span');
+      statsEl.className = 'diffStats';
+      const addEl = document.createElement('span');
+      addEl.className = 'a';
+      addEl.textContent = '+' + stats.a;
+      const delEl = document.createElement('span');
+      delEl.className = 'd';
+      delEl.textContent = ' \u2212' + stats.d;
+      statsEl.appendChild(addEl);
+      if (stats.d > 0) statsEl.appendChild(delEl);
+
+      header.appendChild(statsEl);
+
+      block.appendChild(header);
+
+      // Body
+      const body = document.createElement('div');
+      body.className = 'diffBody';
+
+      lines.forEach(row => {
+        const lineEl = document.createElement('div');
+        lineEl.className = 'diffLine' + (row.cls ? ' ' + row.cls : '');
+
+        const numEl = document.createElement('span');
+        numEl.className = 'diffNum';
+        numEl.textContent = String(row.num ?? '');
+
+        const textEl = document.createElement('span');
+        textEl.className = 'diffText';
+        textEl.textContent = row.text || ' ';
+
+        lineEl.appendChild(numEl);
+        lineEl.appendChild(textEl);
+        body.appendChild(lineEl);
+      });
+
+      block.appendChild(body);
+
+
+      // Collapse long content with "Show more / Show less"
+      const limit = isCreate ? COLLAPSE_LINES_CREATE : COLLAPSE_LINES_EDIT;
+      if (lines.length > limit) {
+        const hiddenCount = lines.length - limit;
+        let collapsed = true;
+
+        const applyState = () => {
+          if (collapsed) {
+            body.classList.add('collapsed');
+            body.style.maxHeight = 'calc(' + (limit * 1.4) + 'em + 12px)';
+            moreBtn.textContent = 'Show more (' + hiddenCount + ' more lines)';
+          } else {
+            body.classList.remove('collapsed');
+            body.style.maxHeight = '';
+            moreBtn.textContent = 'Show less';
+          }
+        };
+
+        const moreBtn = document.createElement('button');
+        moreBtn.type = 'button';
+        moreBtn.className = 'diffMore';
+        moreBtn.addEventListener('click', () => {
+          collapsed = !collapsed;
+          applyState();
+        });
+        block.appendChild(moreBtn);
+        applyState();
+      }
+
+      logEl.appendChild(block);
+      scrollToEnd();
+
+    }
+
+    function addDiffBlock(fileName, action, text) {
+      renderDiffBlock(fileName, action, text);
+      history.push({ kind: 'diff', fileName: fileName, action: action, text: text || '' });
+      saveState();
+    }
+
+
+    // ---------- Export as HTML ----------
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function buildExportHtml() {
+      const parts = [];
+      history.forEach(h => {
+        if (h.kind === 'diff') {
+          const lines = buildDiffRows(h.action, h.text).map(r =>
+            '<div class="diffLine' + (r.cls ? ' ' + r.cls : '') + '">' +
+            '<span class="diffNum">' + escapeHtml(r.num ?? '') + '</span>' +
+            '<span>' + escapeHtml(r.text || ' ') + '</span></div>'
+          ).join('');
+          parts.push(
+            '<div class="diffBlock"><div class="diffHeader">' +
+            (h.action === 'create' ? 'New file: ' : 'Edited: ') + escapeHtml(h.fileName) +
+            '</div><div class="diffBody">' + lines + '</div></div>'
+          );
+        } else if (h.kind === 'html') {
+          parts.push('<div class="response">' + h.html + '</div>');
+        } else {
+          parts.push('<div class="msg' + (h.cls ? ' ' + h.cls : '') + '" dir="auto">' + escapeHtml(h.text) + '</div>');
+        }
+      });
+
+      const css = [
+        'body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:900px;margin:24px auto;padding:0 16px;line-height:1.55;color:#1f2328;background:#fff}',
+        'h1{font-size:20px}',
+        '.msg{margin:10px 0;white-space:pre-wrap}',
+        '.msg.user{padding:6px 10px;border-inline-start:3px solid #0969da;background:#f0f6ff}',
+        '.msg.error{color:#c62828}',
+
+        '.response{margin:10px 0}',
+        '.response pre,.diffBody{background:#f6f8fa;padding:8px;overflow-x:auto;border-radius:4px;font-family:ui-monospace,Consolas,monospace;font-size:12px}',
+        '.response code{font-family:ui-monospace,Consolas,monospace;background:#f6f8fa;padding:1px 4px;border-radius:3px}',
+        '.response pre code{padding:0;background:transparent}',
+        '.response table{border-collapse:collapse}',
+        '.response th,.response td{border:1px solid #d0d7de;padding:3px 8px}',
+        '.diffBlock{margin:12px 0;border:1px solid #d0d7de;border-radius:4px;overflow:hidden}',
+        '.diffHeader{background:#eaeef2;padding:5px 8px;font-size:12px;font-weight:bold}',
+        '.diffBody{margin:0;border-radius:0}',
+        '.diffLine{display:flex;white-space:pre}',
+        '.diffNum{flex:none;min-width:5ch;padding-inline-end:10px;text-align:right;opacity:.5;user-select:none}',
+        '.diffLine.add{color:#2e7d32}',
+        '.diffLine.del{color:#c62828}',
+        '.diffLine.sep{color:#57606a}',
+        '@media (prefers-color-scheme: dark){',
+        'body{color:#e6edf3;background:#0d1117}',
+        '.msg.user{background:#16233a;border-color:#58a6ff}',
+        '.response pre,.diffBody,.response code{background:#161b22}',
+        '.response th,.response td,.diffBlock{border-color:#30363d}',
+        '.diffHeader{background:#161b22}',
+        '.diffLine.add{color:#7ee787}',
+        '.diffLine.del{color:#ff7b72}',
+        '.diffLine.sep{color:#8b949e}',
+        '}'
+      ].join('\n');
+
+      return [
+        '<!DOCTYPE html>',
+        '<html lang="en">',
+        '<head>',
+        '<meta charset="UTF-8">',
+        '<title>Codient Chat</title>',
+        '<style>',
+
+        css,
+        '</style>',
+        '</head>',
+        '<body>',
+        '<h1>Codient Chat</h1>',
+        parts.join('\n'),
+        '</body>',
+        '</html>',
+        ''
+      ].join('\n');
+    }
+
+    // ---------- Busy state / sending ----------
+
+    function setBusy(value) {
+      busy = Boolean(value);
+      sendEl.disabled = busy;
+      statusEl.classList.toggle('show', busy);
+      if (busy) scrollToEnd();
+    }
+
+    function autoSizePrompt() {
+      promptEl.style.height = 'auto';
+      promptEl.style.height = Math.min(promptEl.scrollHeight + 2, MAX_PROMPT_HEIGHT) + 'px';
+    }
+
+    function sendMessage() {
+      if (busy) return;
+      const text = promptEl.value.trim();
+      if (!text) return;
+      addLine(text, 'user');
+      setBusy(true);
+
+      vscode.postMessage({ type: 'ask', text, files: getEffectiveEditFiles(), contextFiles });
+      promptEl.value = '';
+      autoSizePrompt();
+    }
+
+    // ---------- Events ----------
+
+    document.getElementById('addEditFile').addEventListener('click', () => {
+      vscode.postMessage({ type: 'pickFiles', target: 'edit' });
+    });
+    document.getElementById('addContextFile').addEventListener('click', () => {
+      vscode.postMessage({ type: 'pickFiles', target: 'context' });
+    });
+    document.getElementById('clearChat').addEventListener('click', () => {
+      history = [];
+      logEl.innerHTML = '';
+      saveState();
+    });
+    document.getElementById('saveChat').addEventListener('click', () => {
+      if (history.length === 0) return;
+      vscode.postMessage({ type: 'saveHtml', html: buildExportHtml() });
+    });
+
+    sendEl.addEventListener('click', sendMessage);
+    promptEl.addEventListener('input', autoSizePrompt);
+    promptEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      if (msg.type === 'filesPicked') {
+        const files = msg.files || [];
+        if (msg.target === 'edit') {
+          editFiles = [...new Set([...editFiles, ...files])];
+          contextFiles = contextFiles.filter(f => !files.includes(f));
+        } else {
+          contextFiles = [...new Set([...contextFiles, ...files])];
+          editFiles = editFiles.filter(f => !files.includes(f));
+        }
+        renderChips();
+        saveState();
+      } else if (msg.type === 'activeFile') {
+        activeFile = msg.file;
+        if (excludedActive && excludedActive !== activeFile) excludedActive = null;
+        renderChips();
+      } else if (msg.type === 'busy') {
+        setBusy(msg.value);
+      } else if (msg.type === 'done') {
+        const html = sanitizeHtml(msg.explanationHtml);
+        const diffs = msg.diffs || [];
+        if (html) addResponse(html);
+        diffs.forEach(d => addDiffBlock(d.fileName, d.action, d.text));
+        if (!html && diffs.length === 0) addLine('No changes were made.');
+        // The request is finished: reset the manually selected files
+        editFiles = [];
+        contextFiles = [];
+        renderChips();
+        saveState();
+      } else if (msg.type === 'error') {
+        addLine('Error: ' + msg.text, 'error');
+      } else if (msg.type === 'focusPrompt') {
+        promptEl.focus();
+      }
+    });
+
+    // Restore previous chat history and selected files
+    history.forEach(h => {
+
+      if (h.kind === 'diff') renderDiffBlock(h.fileName, h.action, h.text);
+      else if (h.kind === 'html') renderResponse(h.html);
+      else renderLine(h.text, h.cls);
+    });
+    renderChips();
+    updateToolbar();
+    autoSizePrompt();
+    scrollToEnd();
+
+    vscode.postMessage({ type: 'ready' });
+  </script>
 </body>
+
 </html>

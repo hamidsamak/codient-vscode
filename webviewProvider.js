@@ -11,7 +11,8 @@ const CHAT_IDS_STATE_KEY = 'codient.chatIds';
 class ChatViewProvider {
   constructor(context, options = {}) {
     this.context = context;
-    this.onLog = typeof options.onLog === 'function' ? options.onLog : () => {};
+    this.onLog = typeof options.onLog === 'function' ? options.onLog : () => { };
+    this.onChatResult = typeof options.onChatResult === 'function' ? options.onChatResult : null;
     this.view = null;
     this.busy = false;
     this.activeEditorListenerRegistered = false;
@@ -43,8 +44,6 @@ class ChatViewProvider {
           this.ready = true;
           this.pushActiveFile();
           this.flushFocus();
-        } else if (msg.type === 'copyFile') {
-          await this.handleCopyFile(msg);
         }
       } catch (e) {
         this.post({ type: 'error', text: e.message });
@@ -123,23 +122,6 @@ class ChatViewProvider {
     if (!picked) return;
     this.post({ type: 'filesPicked', target: msg.target, files: picked });
   }
-  async handleCopyFile(msg) {
-    const fileName = String(msg.fileName || '');
-    let ok = false;
-    try {
-      const cwd = this.getWorkspaceRoot();
-      if (cwd && fileName) {
-        const full = path.resolve(cwd, fileName);
-        if (full.startsWith(cwd + path.sep) && fs.existsSync(full) && fs.statSync(full).isFile()) {
-          await vscode.env.clipboard.writeText(fs.readFileSync(full, 'utf8'));
-          ok = true;
-        }
-      }
-    } catch {
-      ok = false;
-    }
-    this.post({ type: 'copyResult', fileName, ok });
-  }
 
   getEffectiveModelKey() {
     const model = this.getConfig('model', 'Default');
@@ -149,12 +131,6 @@ class ChatViewProvider {
 
   getChatIdsMap() {
     return this.context.workspaceState.get(CHAT_IDS_STATE_KEY, {});
-  }
-
-  async setChatIdForModel(modelKey, chatId) {
-    const map = this.getChatIdsMap();
-    map[modelKey] = chatId;
-    await this.context.workspaceState.update(CHAT_IDS_STATE_KEY, map);
   }
 
   async handleAsk(msg) {
@@ -173,6 +149,7 @@ class ChatViewProvider {
     this.busy = true;
     this.post({ type: 'busy', value: true });
 
+    let chatInfo = null;
     try {
       const modelKey = this.getEffectiveModelKey();
       const chatId = this.getChatIdsMap()[modelKey] || null;
@@ -193,10 +170,7 @@ class ChatViewProvider {
         onLog: (line) => this.onLog(line),
       });
 
-      if (result.chat && result.chat.newChatUrl) {
-        const parsed = result.chat.newChatUrl.split('/').filter(Boolean).pop();
-        if (parsed) await this.setChatIdForModel(modelKey, parsed);
-      }
+      chatInfo = result.chat || null;
 
       if (result.success) {
         const diffs = (result.diffs || []).map(([fileName, diffLines, action]) => ({
@@ -220,6 +194,14 @@ class ChatViewProvider {
       this.busy = false;
 
       this.post({ type: 'busy', value: false });
+    }
+    // Ask about saving the chat ID only after the response is shown and the UI is unlocked
+    if (chatInfo && this.onChatResult) {
+      try {
+        await this.onChatResult(chatInfo);
+      } catch (e) {
+        this.onLog(`⚠️ Chat ID sync failed: ${e.message}`);
+      }
     }
   }
 

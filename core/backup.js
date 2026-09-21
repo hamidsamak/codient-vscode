@@ -108,14 +108,17 @@ function rollbackFile(backupDir, fileName, cwd, timestamp = null, onLog = consol
   return true;
 }
 
-function unifiedDiffLines(oldContent, newContent) {
-  const parts = Diff.diffLines(oldContent, newContent);
+// Returns unified-diff style lines with only the changed parts plus a few
+// lines of context. Every block starts with an "@@ -a,b +c,d @@" header.
+function unifiedDiffLines(oldContent, newContent, context = 3) {
+  const patch = Diff.structuredPatch('a', 'b', oldContent, newContent, '', '', { context });
   const lines = [];
-  for (const part of parts) {
-    let partLines = part.value.split('\n');
-    if (partLines[partLines.length - 1] === '') partLines.pop();
-    const prefix = part.added ? '+' : part.removed ? '-' : ' ';
-    for (const l of partLines) lines.push(prefix + l);
+  for (const hunk of patch.hunks) {
+    lines.push(`@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`);
+    for (const l of hunk.lines) {
+      if (l.startsWith('\\')) continue;
+      lines.push(l);
+    }
   }
   return lines;
 }
@@ -148,6 +151,7 @@ function generateDiffHtml(diffs, outputPath) {
             .added { background: #144212; color: #9cff9c; }
             .removed { background: #4a1212; color: #ff9c9c; }
             .same { color: #ccc; }
+            .hunk { color: #79c0ff; }
 
             .added::before { content: "+ "; color: #6fff6f; user-select: none; }
             .removed::before { content: "- "; color: #ff6f6f; user-select: none; }
@@ -165,7 +169,10 @@ function generateDiffHtml(diffs, outputPath) {
     htmlContent += `<div class='file'><div class='filename'>${actionLabel} &mdash; ${escapeHtml(fileName)}</div><pre>`;
 
     for (const line of diffLines) {
-      if (line.startsWith('+++') || line.startsWith('---')) continue;
+      if (line.startsWith('@@')) {
+        htmlContent += `<span class='line hunk'>${escapeHtml(line)}</span>\n`;
+        continue;
+      }
       const cleanLine = line.startsWith('+') || line.startsWith('-') ? line.slice(1) : line;
       const escaped = escapeHtml(cleanLine);
 

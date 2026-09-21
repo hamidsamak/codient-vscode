@@ -10,17 +10,17 @@ let chatIdStatusBarItem;
 let extensionContext;
 
 const MODEL_OPTIONS = [
-  { label: 'Default',  value: 'Default'  },
-  { label: 'Claude',   value: 'Claude'   },
-  { label: 'ChatGPT',  value: 'ChatGPT'  },
+  { label: 'Default', value: 'Default' },
+  { label: 'Claude', value: 'Claude' },
+  { label: 'ChatGPT', value: 'ChatGPT' },
   { label: 'Gemini', value: 'Gemini' },
   { label: 'DeepSeek', value: 'DeepSeek' },
 ];
 
 const MODEL_URL_PATTERNS = {
-  claude:   /claude\.ai\/chat\/([a-zA-Z0-9-]+)/,
-  chatgpt:  /chatgpt\.com\/c\/([a-zA-Z0-9-]+)/,
-  gemini:   /gemini\.google\.com\/app\/([a-zA-Z0-9-]+)/,
+  claude: /claude\.ai\/chat\/([a-zA-Z0-9-]+)/,
+  chatgpt: /chatgpt\.com\/c\/([a-zA-Z0-9-]+)/,
+  gemini: /gemini\.google\.com\/app\/([a-zA-Z0-9-]+)/,
   deepseek: /chat\.deepseek\.com\/a\/chat\/s\/([a-zA-Z0-9-]+)/,
 };
 
@@ -482,7 +482,7 @@ function buildArgsSummary(selectedFiles) {
 function activate(context) {
   extensionContext = context;
 
-  const chatProvider = new ChatViewProvider(context, { onLog: logToChannel });
+  const chatProvider = new ChatViewProvider(context, { onLog: logToChannel, onChatResult: maybeSyncChatId });
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider('codient.chatView', chatProvider, {
       webviewOptions: { retainContextWhenHidden: true },

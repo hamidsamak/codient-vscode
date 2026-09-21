@@ -90,7 +90,7 @@
     "keybindings": [
       {
         "command": "codient.openChat",
-        "key": "ctrl+alt+c",
+        "key": "ctrl+shift+c",
         "mac": "cmd+alt+c"
       }
     ],
