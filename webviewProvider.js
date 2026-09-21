@@ -15,10 +15,19 @@ class ChatViewProvider {
     this.view = null;
     this.busy = false;
     this.activeEditorListenerRegistered = false;
+    this.ready = false;
+    this.pendingFocus = false;
   }
 
   resolveWebviewView(webviewView) {
     this.view = webviewView;
+    this.ready = false;
+    webviewView.onDidDispose(() => {
+      if (this.view === webviewView) {
+        this.view = null;
+        this.ready = false;
+      }
+    });
     webviewView.webview.options = { enableScripts: true };
     webviewView.webview.html = this.getHtml();
 
@@ -31,7 +40,11 @@ class ChatViewProvider {
         } else if (msg.type === 'saveHtml') {
           await this.handleSaveHtml(msg);
         } else if (msg.type === 'ready') {
+          this.ready = true;
           this.pushActiveFile();
+          this.flushFocus();
+        } else if (msg.type === 'copyFile') {
+          await this.handleCopyFile(msg);
         }
       } catch (e) {
         this.post({ type: 'error', text: e.message });
@@ -51,6 +64,18 @@ class ChatViewProvider {
 
   post(msg) {
     if (this.view) this.view.webview.postMessage(msg);
+  }
+  focusPrompt() {
+    this.pendingFocus = true;
+    this.flushFocus();
+  }
+
+  flushFocus() {
+    if (this.view && this.ready && this.pendingFocus) {
+
+      this.pendingFocus = false;
+      this.view.webview.postMessage({ type: 'focusPrompt' });
+    }
   }
 
   getWorkspaceRoot() {
@@ -97,6 +122,23 @@ class ChatViewProvider {
     });
     if (!picked) return;
     this.post({ type: 'filesPicked', target: msg.target, files: picked });
+  }
+  async handleCopyFile(msg) {
+    const fileName = String(msg.fileName || '');
+    let ok = false;
+    try {
+      const cwd = this.getWorkspaceRoot();
+      if (cwd && fileName) {
+        const full = path.resolve(cwd, fileName);
+        if (full.startsWith(cwd + path.sep) && fs.existsSync(full) && fs.statSync(full).isFile()) {
+          await vscode.env.clipboard.writeText(fs.readFileSync(full, 'utf8'));
+          ok = true;
+        }
+      }
+    } catch {
+      ok = false;
+    }
+    this.post({ type: 'copyResult', fileName, ok });
   }
 
   getEffectiveModelKey() {

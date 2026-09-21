@@ -59,6 +59,10 @@
       {
         "command": "codient.chatIdMenu",
         "title": "Codient: Chat ID Options"
+      },
+      {
+        "command": "codient.openChat",
+        "title": "Codient: Open Chat"
       }
     ],
     "menus": {
@@ -85,7 +89,7 @@
     },
     "keybindings": [
       {
-        "command": "codient.chatView.focus",
+        "command": "codient.openChat",
         "key": "ctrl+alt+c",
         "mac": "cmd+alt+c"
       }

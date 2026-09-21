@@ -33,8 +33,17 @@
   .response a { color: var(--vscode-textLink-foreground); }
 
   .diffBlock { margin-bottom:10px; border:1px solid var(--vscode-panel-border); border-radius:4px; overflow:hidden; }
-  .diffHeader { background: var(--vscode-editorGroupHeader-tabsBackground); padding:4px 6px; font-size:11px; font-weight:bold; }
-  .diffBody { margin:0; padding:6px; font-family: var(--vscode-editor-font-family); font-size:11px; overflow-x:auto; }
+  .diffHeader { display:flex; align-items:center; gap:6px; background: var(--vscode-editorGroupHeader-tabsBackground); padding:4px 6px; font-size:11px; }
+  .diffTitle { flex:1; min-width:0; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .diffStats { white-space:nowrap; opacity:.9; }
+  .diffStats .a { color:#4caf50; }
+  .diffStats .d { color:#f44336; }
+  .diffCopy { background:transparent; color: var(--vscode-textLink-foreground); border:1px solid var(--vscode-panel-border); padding:1px 6px; font-size:11px; font-family:inherit; cursor:pointer; border-radius:3px; white-space:nowrap; }
+  .diffCopy:hover { background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,.2)); }
+  .diffBody { margin:0; padding:6px; font-family: var(--vscode-editor-font-family); font-size:11px; line-height:1.4; overflow-x:auto; }
+  .diffBody.collapsed { overflow-y:hidden; }
+  .diffMore { display:block; width:100%; background:transparent; color: var(--vscode-textLink-foreground); border:none; border-top:1px solid var(--vscode-panel-border); padding:3px 6px; font-size:11px; font-family:inherit; cursor:pointer; }
+  .diffMore:hover { background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,.2)); }
   .diffLine { white-space:pre; }
   .diffLine.add { color: #4caf50; }
   .diffLine.del { color: #f44336; }
@@ -259,19 +268,121 @@
   }
 
 
+  const COLLAPSE_LINES_CREATE = 10;
+  const COLLAPSE_LINES_EDIT = 25;
+  const pendingCopies = new Map();
+
+  function countDiffStats(lines) {
+    let a = 0, d = 0;
+    lines.forEach(l => {
+      const c = classifyDiffLine(l);
+      if (c === 'add') a++;
+      else if (c === 'del') d++;
+    });
+    return { a, d };
+  }
+
+
+  // For new files: rebuild the plain file content from a diff-style text (if it is one).
+  function extractNewFileContent(text) {
+    const src = text || '';
+    const lines = src.split('\n');
+    const nonEmpty = lines.filter(l => l.length > 0);
+    const looksLikeDiff =
+      lines.some(l => l.startsWith('@@') || l.startsWith('+++ ') || l.startsWith('--- ')) ||
+      (nonEmpty.length > 0 && nonEmpty.every(l => l.startsWith('+')));
+    if (!looksLikeDiff) return src;
+    return lines
+      .filter(l => l.startsWith('+') && !l.startsWith('+++ '))
+      .map(l => l.slice(1))
+      .join('\n');
+  }
+
+  function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) { /* ignore */ }
+    document.body.removeChild(ta);
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+    }
+    fallbackCopy(text);
+
+    return Promise.resolve();
+  }
+
   function renderDiffBlock(fileName, action, text) {
+    const isCreate = action === 'create';
     const block = document.createElement('div');
     block.className = 'diffBlock';
 
+    const lines = (text || '').split('\n');
+    if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
+    const stats = countDiffStats(lines);
+
+    // Header: title, stats, copy button
     const header = document.createElement('div');
     header.className = 'diffHeader';
-    header.textContent = (action === 'create' ? 'New file: ' : 'Edited: ') + fileName;
+
+    const title = document.createElement('span');
+    title.className = 'diffTitle';
+    title.title = fileName;
+    title.textContent = (isCreate ? 'New file: ' : 'Edited: ') + fileName;
+    header.appendChild(title);
+
+    const statsEl = document.createElement('span');
+    statsEl.className = 'diffStats';
+    const addEl = document.createElement('span');
+    addEl.className = 'a';
+    addEl.textContent = '+' + stats.a;
+    const delEl = document.createElement('span');
+    delEl.className = 'd';
+    delEl.textContent = ' \u2212' + stats.d;
+    statsEl.appendChild(addEl);
+    if (stats.d > 0) statsEl.appendChild(delEl);
+
+    header.appendChild(statsEl);
+
+    const copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.className = 'diffCopy';
+    const copyLabel = 'Copy source';
+    copyBtn.textContent = copyLabel;
+    copyBtn.title = 'Copy the full source of this file';
+
+    const flashCopy = (label) => {
+
+      copyBtn.textContent = label;
+      setTimeout(() => { copyBtn.textContent = copyLabel; }, 1500);
+    };
+
+    copyBtn.addEventListener('click', () => {
+      pendingCopies.set(fileName, (ok) => {
+        if (ok) {
+          flashCopy('Copied \u2713');
+        } else if (isCreate) {
+          copyText(extractNewFileContent(text)).then(() => flashCopy('Copied \u2713'));
+        } else {
+          flashCopy('Copy failed');
+        }
+      });
+      vscode.postMessage({ type: 'copyFile', fileName: fileName });
+    });
+    header.appendChild(copyBtn);
+
     block.appendChild(header);
 
+    // Body
     const body = document.createElement('div');
     body.className = 'diffBody';
 
-    const lines = (text || '').split('\n');
     lines.forEach(line => {
       const lineEl = document.createElement('div');
       const cls = classifyDiffLine(line);
@@ -281,8 +392,40 @@
     });
 
     block.appendChild(body);
+
+
+    // Collapse long content with "Show more / Show less"
+    const limit = isCreate ? COLLAPSE_LINES_CREATE : COLLAPSE_LINES_EDIT;
+    if (lines.length > limit) {
+      const hiddenCount = lines.length - limit;
+      let collapsed = true;
+
+      const applyState = () => {
+        if (collapsed) {
+          body.classList.add('collapsed');
+          body.style.maxHeight = 'calc(' + (limit * 1.4) + 'em + 12px)';
+          moreBtn.textContent = 'Show more (' + hiddenCount + ' more lines)';
+        } else {
+          body.classList.remove('collapsed');
+          body.style.maxHeight = '';
+          moreBtn.textContent = 'Show less';
+        }
+      };
+
+      const moreBtn = document.createElement('button');
+      moreBtn.type = 'button';
+      moreBtn.className = 'diffMore';
+      moreBtn.addEventListener('click', () => {
+        collapsed = !collapsed;
+        applyState();
+      });
+      block.appendChild(moreBtn);
+      applyState();
+    }
+
     logEl.appendChild(block);
     scrollToEnd();
+
   }
 
   function addDiffBlock(fileName, action, text) {
@@ -451,6 +594,14 @@
       if (!html && diffs.length === 0) addLine('No changes were made.');
     } else if (msg.type === 'error') {
       addLine('Error: ' + msg.text, 'error');
+    } else if (msg.type === 'focusPrompt') {
+      promptEl.focus();
+    } else if (msg.type === 'copyResult') {
+      const cb = pendingCopies.get(msg.fileName);
+      if (cb) {
+        pendingCopies.delete(msg.fileName);
+        cb(Boolean(msg.ok));
+      }
     }
   });
 

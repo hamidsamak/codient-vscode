@@ -492,6 +492,12 @@ function activate(context) {
   chatIdStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   context.subscriptions.push(chatIdStatusBarItem);
   updateChatIdStatusBar();
+  // Command: Open the chat and focus the prompt box
+  context.subscriptions.push(vscode.commands.registerCommand('codient.openChat', async () => {
+    await vscode.commands.executeCommand('codient.chatView.focus');
+
+    chatProvider.focusPrompt();
+  }));
 
   // Command 1: Ask — always overwrites
   context.subscriptions.push(vscode.commands.registerCommand('codient.ask', async () => {
