@@ -83,6 +83,13 @@
         }
       ]
     },
+    "keybindings": [
+      {
+        "command": "codient.chatView.focus",
+        "key": "ctrl+alt+c",
+        "mac": "cmd+alt+c"
+      }
+    ],
     "configuration": {
       "title": "Codient",
       "properties": {
