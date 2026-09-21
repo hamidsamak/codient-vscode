@@ -165,6 +165,25 @@
           "order": 5
         }
       }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codient-sidebar",
+          "title": "Codient",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "codient-sidebar": [
+        {
+          "id": "codient.chatView",
+          "name": "Chat",
+          "type": "webview",
+          "icon": "media/icon.svg"
+        }
+      ]
     }
   }
 }

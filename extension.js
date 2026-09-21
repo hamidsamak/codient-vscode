@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const core = require('./core');
+const { ChatViewProvider } = require('./webviewProvider');
 
 let outputChannel;
 let chatIdStatusBarItem;
@@ -481,7 +482,14 @@ function buildArgsSummary(selectedFiles) {
 function activate(context) {
   extensionContext = context;
 
-  chatIdStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+  const chatProvider = new ChatViewProvider(context, { onLog: logToChannel });
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider('codient.chatView', chatProvider, {
+      webviewOptions: { retainContextWhenHidden: true },
+    })
+  );
+
+  chatIdStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   context.subscriptions.push(chatIdStatusBarItem);
   updateChatIdStatusBar();
 

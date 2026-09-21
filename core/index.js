@@ -122,6 +122,7 @@ async function runTask(options) {
     let finalDiffs = [];
     let finalWritten = [];
     let finalReportPath = null;
+    let finalExplanationHtml = '';
 
     for (let round = 0; round < maxRounds; round++) {
       const result = await processResponse(page, model, {
@@ -134,6 +135,7 @@ async function runTask(options) {
         finalDiffs = result.diffs || [];
         finalWritten = result.writtenFiles || [];
         finalReportPath = result.reportPath || null;
+        finalExplanationHtml = result.explanationHtml || '';
         break;
       }
 
@@ -182,6 +184,7 @@ async function runTask(options) {
       diffs: finalDiffs,
       writtenFiles: finalWritten,
       reportPath: finalReportPath,
+      explanationHtml: finalExplanationHtml,
       chat: { hadChatId, newChatUrl: chatResult.newChatUrl, model, invalidReason: chatResult.invalidReason },
     };
   } catch (e) {

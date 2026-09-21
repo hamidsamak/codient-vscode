@@ -7,7 +7,7 @@ const { buildTree } = require('./ignore');
 
 const RULES_BLOCK = `
 Rules:
-1. Return ONLY a single fenced XML code block. The response MUST start with \`\`\`xml on its own line and end with \`\`\` on its own line. No text, explanation, or commentary before the opening fence or after the closing fence.
+1. Your response must contain exactly ONE fenced XML code block that holds all file changes (except in the case described in rule 5). The code block MUST start with \`\`\`xml on its own line and end with \`\`\` on its own line. In addition, write a short, clear explanation in plain markdown text OUTSIDE the code block, placed before it, describing what you changed (or the answer to the question) and why, written in the same language as the user's question. Never put the explanation inside the XML block, and do not use any other fenced code blocks anywhere in the response (use inline code formatting if you need to mention code).
 2. Wrap each file like: <file name="..." path="..." action="edit|create">code here</file>
    - Use action="edit" for existing files that are being modified.
    - Use action="create" for brand new files that do not exist yet.
