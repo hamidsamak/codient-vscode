@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const core = require('./core');
+const { getOpenEditorFiles } = require('./editorFiles');
 
 const CHAT_IDS_STATE_KEY = 'codient.chatIds';
 
@@ -110,17 +111,40 @@ class ChatViewProvider {
       .sort();
   }
 
+  buildGroupedFileItems(cwd, allFiles, options = {}) {
+    const { excludeFiles = [] } = options;
+    const excludeSet = new Set(excludeFiles);
+
+    const openFiles = getOpenEditorFiles(cwd).filter((f) => !excludeSet.has(f));
+    const openSet = new Set(openFiles);
+    const remaining = allFiles.filter((f) => !excludeSet.has(f) && !openSet.has(f));
+
+    const items = [];
+    if (openFiles.length > 0) {
+      items.push({ label: 'Open Editors', kind: vscode.QuickPickItemKind.Separator });
+      openFiles.forEach((f) => items.push({ label: f }));
+    }
+    if (remaining.length > 0) {
+      items.push({ label: 'All Files', kind: vscode.QuickPickItemKind.Separator });
+      remaining.forEach((f) => items.push({ label: f }));
+    }
+    return items;
+  }
+
   async handlePickFiles(msg) {
     const cwd = this.getWorkspaceRoot();
     if (!cwd) return;
     const allFiles = await this.findAllFiles(cwd);
-    const picked = await vscode.window.showQuickPick(allFiles, {
+    const excludeFiles = msg.target === 'context' ? (msg.editFiles || []) : [];
+    const items = this.buildGroupedFileItems(cwd, allFiles, { excludeFiles });
+    const picked = await vscode.window.showQuickPick(items, {
       canPickMany: true,
       placeHolder: msg.target === 'context' ? 'Context Files (read-only)' : 'Files to Edit',
       title: msg.target === 'context' ? 'Context Files' : 'Files to Edit',
     });
     if (!picked) return;
-    this.post({ type: 'filesPicked', target: msg.target, files: picked });
+
+    this.post({ type: 'filesPicked', target: msg.target, files: picked.map((p) => p.label) });
   }
 
   getEffectiveModelKey() {

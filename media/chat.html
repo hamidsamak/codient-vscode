@@ -898,7 +898,7 @@
       vscode.postMessage({ type: 'pickFiles', target: 'edit' });
     });
     document.getElementById('addContextFile').addEventListener('click', () => {
-      vscode.postMessage({ type: 'pickFiles', target: 'context' });
+      vscode.postMessage({ type: 'pickFiles', target: 'context', editFiles: getEffectiveEditFiles() });
     });
     document.getElementById('clearChat').addEventListener('click', () => {
       history = [];

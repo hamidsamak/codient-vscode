@@ -4,6 +4,7 @@ const path = require('path');
 const os = require('os');
 const core = require('./core');
 const { ChatViewProvider } = require('./webviewProvider');
+const { getOpenEditorFiles } = require('./editorFiles');
 
 let outputChannel;
 let chatIdStatusBarItem;
@@ -263,27 +264,6 @@ async function pickProfile() {
 }
 
 
-function getOpenEditorFiles(workspacePath) {
-  const files = new Set();
-  try {
-    for (const group of vscode.window.tabGroups.all) {
-      for (const tab of group.tabs) {
-        const input = tab.input;
-        if (input instanceof vscode.TabInputText && input.uri) {
-          const fsPath = input.uri.fsPath;
-          if (fsPath && fsPath.startsWith(workspacePath + path.sep)) {
-            const rel = path.relative(workspacePath, fsPath);
-            if (rel && !rel.startsWith('..')) {
-              files.add(rel);
-            }
-          }
-        }
-      }
-    }
-  } catch {
-  }
-  return [...files].sort();
-}
 
 function getMruFiles() {
   return extensionContext.workspaceState.get(MRU_FILES_STATE_KEY, []);
