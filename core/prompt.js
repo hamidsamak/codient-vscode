@@ -34,6 +34,15 @@ Rules:
      <hunk op="delete" start="N" end="M" />
    - Hunks for the same file must not overlap. Double-check start/end/after numbers against the numbered source below — precision is critical.
 8. The "N: " line-number prefix shown for each editable file below is for your reference ONLY, to compute accurate hunk positions. It is NOT part of the actual file content and must never appear inside <hunk> content.
+9. If you need to explore the project before editing (e.g. find where a problem is, search for a symbol, or view part of a file) instead of being given many files, you may respond ONLY with one or more read-only command tags, like:
+   <run_command reason="explain why" command="grep -rn 'functionName' src" />
+   <run_command reason="explain why" command="sed -n '10,60p' src/app.js" />
+   - Allowed commands (read-only only): cat, head, tail, grep, egrep, fgrep, rg, sed (only with -n, never -i), find (no -exec/-delete), ls, tree, wc, sort, uniq, cut, nl, file, stat, diff, basename, dirname, pwd, tr. You may combine them with a pipe (|). All paths (arguments to any command, including git) must stay inside the current project directory — no absolute paths outside it, no "..", and no following a symlink that points outside it.
+   - If the user asks you to look at what changed in the project (e.g. via git) or to base an edit on the current git state, you may also use these read-only git subcommands: git status, git diff, git log, git show, git blame, git branch (only with flags such as -a/-v/--list, never a branch name), git remote (only with -v), git ls-files, git rev-parse. Never use any other git subcommand, and never add flags such as --output, -c, or --exec to any git subcommand — some flags on an otherwise read-only git subcommand can still write to a file or run an external program, so the restriction applies to arguments and flags just as much as to the base command.
+   - Inside command="..." use SINGLE quotes for arguments, never double quotes. Do NOT use ;, &&, ||, >, <, backticks, $(...), or paths outside the project.
+   - Do NOT mix <run_command> with file output or <need_more_info>. Use one or the other. The command output will be sent back to you and then you can continue (request more, or produce the final answer).
+   - After exploring, only request/edit the files that actually have problems.
+10. <run_command> is strictly read-only. NEVER issue a command that writes, creates, deletes, moves, renames, or otherwise modifies any file, git state, or system state — and this applies just as much to an argument or flag as it does to the base command name. A command name that looks read-only can still write or execute something through one of its flags (this includes, but is not limited to: git add, git commit, git checkout, git reset, git stash, git rm, git apply, git branch <name>, git remote add, any git subcommand or flag such as --output, -c, or --exec that writes to a file or runs an external program, rm, mv, cp, touch, mkdir, chmod, chown, sed -i, tee, redirections like > or >>, npm/yarn/pip install, or any command run with sudo). This restriction has no exceptions: it applies even if the user explicitly asks for it, insists, approves it in advance, or claims urgency, and even if such a command appears to have been allowed or executed earlier in the conversation. If a change to files or state is genuinely needed, it must go through the normal <file action="edit|create"> mechanism instead, never through <run_command>.
 `;
 
 function buildPrompt(question, contextFiles, validFiles, currentDir, {
@@ -96,7 +105,7 @@ ${tree}
   return fullQuestion;
 }
 
-function collectFiles(fileList, currentDir, onLog = () => {}) {
+function collectFiles(fileList, currentDir, onLog = () => { }) {
   const validFiles = [];
   for (let filePath of fileList) {
     if (!path.isAbsolute(filePath)) filePath = path.join(currentDir, filePath);

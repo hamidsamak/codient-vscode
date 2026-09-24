@@ -5,6 +5,7 @@ const os = require('os');
 const path = require('path');
 const { ensureDir, readFile } = require('./fileOps');
 const { buildPrompt, collectFiles } = require('./prompt');
+const { executeCommands } = require('./commands');
 const { showHistory, rollbackFile } = require('./backup');
 const {
   createContext, getPage, navigateAndCheckChat,
@@ -69,7 +70,7 @@ async function runTask(options) {
     fullContext = false,
     nonInteractive = false,
     cwd = process.cwd(),
-    maxRounds = 5,
+    maxRounds = 10,
     onLog = () => {},
     openReport = defaultOpenReport,
     resolveMissingFile = null,
@@ -130,6 +131,23 @@ async function runTask(options) {
       });
 
       if (result === null) break;
+      if (result.runCommands) {
+        onLog(`\n🖥️  AI requested ${result.commands.length} read-only command(s) (round ${round + 1}):`);
+        for (const c of result.commands) {
+
+          if (c.reason) onLog(`   Reason: ${c.reason}`);
+        }
+
+        const outputs = await executeCommands(result.commands, cwd, { onLog });
+        const pseudoFiles = outputs.map((o, i) => {
+          const name = `command_output_${i + 1}.txt`;
+          return [name, path.join(cwd, name), o.text];
+        });
+
+        const cmdFollowUpOk = await sendFollowUp(page, model, pseudoFiles, { debug, debugDir, missingFiles: [], onLog });
+        if (!cmdFollowUpOk) break;
+        continue;
+      }
 
       if (!result.needMoreInfo) {
         finalDiffs = result.diffs || [];

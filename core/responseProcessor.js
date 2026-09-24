@@ -7,6 +7,7 @@ const { formatTimestamp, unifiedDiffLines, generateDiffHtml } = require('./backu
 const { MODEL_CONFIG } = require('./modelConfig');
 
 const NEED_MORE_INFO_RE = /<need_more_info\s+reason="([^"]+)"\s+files="([^"]+)"\s*\/?>/;
+const RUN_COMMAND_RE = /<run_command\s+reason="([^"]*)"\s+command="([^"]+)"\s*\/?>/g;
 const FILE_TAG_RE = /<file\s+name="(?<name>[^"]+)"\s+path="(?<path>[^"]+)"(?:\s+action="(?<action>[^"]+)")?[^>]*>\s*(?:<!\[CDATA\[)?(?<content>.*?)(?:\]\]>)?\s*<\/file>/gs;
 
 async function extractExplanationHtml(responseEl) {
@@ -58,6 +59,11 @@ async function processResponse(page, model, options) {
     const last = responseEls[responseEls.length - 1];
     const fullText = await last.innerText();
 
+    const commandMatches = [...fullText.matchAll(RUN_COMMAND_RE)];
+    if (commandMatches.length > 0 && !/<file\s/.test(fullText)) {
+      const commands = commandMatches.map((m) => ({ reason: m[1], command: m[2] }));
+      return { needMoreInfo: false, runCommands: true, commands };
+    }
     const needMoreMatch = fullText.match(NEED_MORE_INFO_RE);
     if (needMoreMatch) {
       const reason = needMoreMatch[1];
