@@ -418,10 +418,13 @@
 
     const MAX_HISTORY = 500;
     const MAX_PROMPT_HEIGHT = 200;
+    const DRAFT_SAVE_DELAY = 300;
     const saved = vscode.getState() || {};
     let editFiles = saved.editFiles || [];
     let contextFiles = saved.contextFiles || [];
     let history = saved.history || [];
+    let draftText = saved.draft || '';
+    let draftSaveTimer = null;
     let activeFile = null;
     let excludedActive = null;
     let busy = false;
@@ -433,8 +436,16 @@
 
     function saveState() {
       if (history.length > MAX_HISTORY) history = history.slice(-MAX_HISTORY);
-      vscode.setState({ editFiles, contextFiles, history });
+      vscode.setState({ editFiles, contextFiles, history, draft: draftText });
       updateToolbar();
+    }
+
+    function scheduleDraftSave() {
+      draftText = promptEl.value;
+      clearTimeout(draftSaveTimer);
+      draftSaveTimer = setTimeout(() => {
+        vscode.setState({ editFiles, contextFiles, history, draft: draftText });
+      }, DRAFT_SAVE_DELAY);
     }
 
     function scrollToEnd() {
@@ -890,6 +901,9 @@
       vscode.postMessage({ type: 'ask', text, files: getEffectiveEditFiles(), contextFiles });
       promptEl.value = '';
       autoSizePrompt();
+      clearTimeout(draftSaveTimer);
+      draftText = '';
+      saveState();
     }
 
     // ---------- Events ----------
@@ -912,6 +926,7 @@
 
     sendEl.addEventListener('click', sendMessage);
     promptEl.addEventListener('input', autoSizePrompt);
+    promptEl.addEventListener('input', scheduleDraftSave);
     promptEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
@@ -957,7 +972,6 @@
       }
     });
 
-    // Restore previous chat history and selected files
     history.forEach(h => {
 
       if (h.kind === 'diff') renderDiffBlock(h.fileName, h.action, h.text);
@@ -966,6 +980,7 @@
     });
     renderChips();
     updateToolbar();
+    promptEl.value = draftText;
     autoSizePrompt();
     scrollToEnd();
 
