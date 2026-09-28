@@ -310,6 +310,24 @@
       background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, .25));
     }
 
+    .clearAllBtn {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 10px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      background: transparent;
+      color: var(--vscode-errorForeground, #f14c4c);
+      border: 1px solid var(--vscode-errorForeground, #f14c4c);
+    }
+
+    .clearAllBtn:hover {
+      background: var(--vscode-errorForeground, #f14c4c);
+      color: var(--vscode-editor-background);
+    }
+
     textarea {
       display: block;
       width: 100%;
@@ -507,6 +525,23 @@
           saveState();
         }));
       });
+      const totalSelected = getEffectiveEditFiles().length + contextFiles.length;
+      if (totalSelected > 3) {
+        const clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.className = 'clearAllBtn';
+        clearBtn.title = 'Remove all files from the selection (files on disk are not deleted)';
+        clearBtn.textContent = 'Clear selection';
+        clearBtn.addEventListener('click', () => {
+
+          editFiles = [];
+          contextFiles = [];
+          if (activeFile) excludedActive = activeFile;
+          renderChips();
+          saveState();
+        });
+        chipsEl.appendChild(clearBtn);
+      }
     }
 
     // ---------- Chat rendering ----------
@@ -909,7 +944,7 @@
     // ---------- Events ----------
 
     document.getElementById('addEditFile').addEventListener('click', () => {
-      vscode.postMessage({ type: 'pickFiles', target: 'edit' });
+      vscode.postMessage({ type: 'pickFiles', target: 'edit', editFiles: getEffectiveEditFiles() });
     });
     document.getElementById('addContextFile').addEventListener('click', () => {
       vscode.postMessage({ type: 'pickFiles', target: 'context', editFiles: getEffectiveEditFiles() });
@@ -940,8 +975,13 @@
       if (msg.type === 'filesPicked') {
         const files = msg.files || [];
         if (msg.target === 'edit') {
-          editFiles = [...new Set([...editFiles, ...files])];
+          const wasActiveSelected = activeFile && getEffectiveEditFiles().includes(activeFile);
+          editFiles = [...new Set(files)];
           contextFiles = contextFiles.filter(f => !files.includes(f));
+          if (activeFile) {
+            if (files.includes(activeFile)) excludedActive = null;
+            else if (wasActiveSelected) excludedActive = activeFile;
+          }
         } else {
           contextFiles = [...new Set([...contextFiles, ...files])];
           editFiles = editFiles.filter(f => !files.includes(f));

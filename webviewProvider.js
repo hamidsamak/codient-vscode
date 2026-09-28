@@ -112,21 +112,25 @@ class ChatViewProvider {
   }
 
   buildGroupedFileItems(cwd, allFiles, options = {}) {
-    const { excludeFiles = [] } = options;
+    const { excludeFiles = [], preselectFiles = [] } = options;
     const excludeSet = new Set(excludeFiles);
+    const preselectSet = new Set(preselectFiles);
+    const makeItem = (f) => ({ label: f, picked: preselectSet.has(f) });
+
 
     const openFiles = getOpenEditorFiles(cwd).filter((f) => !excludeSet.has(f));
     const openSet = new Set(openFiles);
-    const remaining = allFiles.filter((f) => !excludeSet.has(f) && !openSet.has(f));
+    const merged = [...new Set([...allFiles, ...preselectFiles])].sort();
+    const remaining = merged.filter((f) => !excludeSet.has(f) && !openSet.has(f));
 
     const items = [];
     if (openFiles.length > 0) {
       items.push({ label: 'Open Editors', kind: vscode.QuickPickItemKind.Separator });
-      openFiles.forEach((f) => items.push({ label: f }));
+      openFiles.forEach((f) => items.push(makeItem(f)));
     }
     if (remaining.length > 0) {
       items.push({ label: 'All Files', kind: vscode.QuickPickItemKind.Separator });
-      remaining.forEach((f) => items.push({ label: f }));
+      remaining.forEach((f) => items.push(makeItem(f)));
     }
     return items;
   }
@@ -135,12 +139,15 @@ class ChatViewProvider {
     const cwd = this.getWorkspaceRoot();
     if (!cwd) return;
     const allFiles = await this.findAllFiles(cwd);
-    const excludeFiles = msg.target === 'context' ? (msg.editFiles || []) : [];
-    const items = this.buildGroupedFileItems(cwd, allFiles, { excludeFiles });
+    const isContext = msg.target === 'context';
+    const excludeFiles = isContext ? (msg.editFiles || []) : [];
+    const preselectFiles = isContext ? [] : (msg.editFiles || []);
+    const items = this.buildGroupedFileItems(cwd, allFiles, { excludeFiles, preselectFiles });
     const picked = await vscode.window.showQuickPick(items, {
       canPickMany: true,
-      placeHolder: msg.target === 'context' ? 'Context Files (read-only)' : 'Files to Edit',
-      title: msg.target === 'context' ? 'Context Files' : 'Files to Edit',
+      placeHolder: isContext ? 'Context Files (read-only)' : 'Files to Edit',
+      title: isContext ? 'Context Files' : 'Files to Edit',
+
     });
     if (!picked) return;
 
