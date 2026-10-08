@@ -75,6 +75,28 @@
       color: var(--vscode-errorForeground);
     }
 
+    .retryBtn {
+      display: block;
+      margin-top: 4px;
+      background: transparent;
+      color: var(--vscode-textLink-foreground);
+      border: 1px solid var(--vscode-textLink-foreground);
+      border-radius: 3px;
+      padding: 1px 8px;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    .retryBtn:hover {
+      background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, .2));
+    }
+
+    .retryBtn:disabled {
+      opacity: .5;
+      cursor: default;
+    }
+
     .response {
       margin-bottom: 10px;
       font-size: 12px;
@@ -546,19 +568,80 @@
 
     // ---------- Chat rendering ----------
 
-    function renderLine(text, cls) {
+    function renderLine(text, cls, entry) {
       const d = document.createElement('div');
       d.className = 'msg' + (cls ? ' ' + cls : '');
       d.setAttribute('dir', 'auto');
-      d.textContent = text;
+
+      const t = document.createElement('span');
+
+      t.textContent = text;
+      d.appendChild(t);
+
+      // Retry button for a user message whose request failed
+      if (entry && entry.retry) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'retryBtn';
+        btn.setAttribute('dir', 'ltr');
+        btn.title = 'Send this message again';
+        btn.textContent = '\u21BB Retry';
+        btn.addEventListener('click', () => retryMessage(entry));
+        d.appendChild(btn);
+      }
+
       logEl.appendChild(d);
       scrollToEnd();
     }
 
-    function addLine(text, cls) {
-      renderLine(text, cls);
-      history.push({ kind: 'line', text: text, cls: cls || '' });
+    function addLine(text, cls, extra) {
+      const entry = Object.assign({ kind: 'line', text: text, cls: cls || '' }, extra || {});
+      renderLine(text, cls, entry);
+      history.push(entry);
       saveState();
+      return entry;
+    }
+
+    function renderHistory() {
+      logEl.innerHTML = '';
+      history.forEach(h => {
+        if (h.kind === 'diff') renderDiffBlock(h.fileName, h.action, h.text);
+        else if (h.kind === 'html') renderResponse(h.html);
+
+        else renderLine(h.text, h.cls, h);
+      });
+      scrollToEnd();
+    }
+
+    // Marks the last user message as failed so it shows a Retry button
+    function markLastUserMessageFailed() {
+      let target = null;
+      for (let i = history.length - 1; i >= 0; i--) {
+        if (history[i].kind === 'line' && history[i].cls === 'user') {
+          target = history[i];
+          break;
+        }
+      }
+      if (!target) return;
+      history.forEach(h => { if (h.retry) delete h.retry; });
+      target.retry = true;
+      saveState();
+      renderHistory();
+    }
+
+    function retryMessage(entry) {
+      if (busy) return;
+      delete entry.retry;
+      saveState();
+      renderHistory();
+      setBusy(true);
+      vscode.postMessage({
+        type: 'ask',
+        text: entry.text,
+        files: entry.files || [],
+        contextFiles: entry.contextFiles || []
+
+      });
     }
 
     const ALLOWED_TAGS = new Set([
@@ -930,10 +1013,12 @@
       if (busy) return;
       const text = promptEl.value.trim();
       if (!text) return;
-      addLine(text, 'user');
+      const filesToSend = getEffectiveEditFiles();
+      const contextToSend = [...contextFiles];
+      addLine(text, 'user', { files: filesToSend, contextFiles: contextToSend });
       setBusy(true);
 
-      vscode.postMessage({ type: 'ask', text, files: getEffectiveEditFiles(), contextFiles });
+      vscode.postMessage({ type: 'ask', text, files: filesToSend, contextFiles: contextToSend });
       promptEl.value = '';
       autoSizePrompt();
       clearTimeout(draftSaveTimer);
@@ -1006,18 +1091,14 @@
         renderChips();
         saveState();
       } else if (msg.type === 'error') {
+        markLastUserMessageFailed();
         addLine('Error: ' + msg.text, 'error');
       } else if (msg.type === 'focusPrompt') {
         promptEl.focus();
       }
     });
 
-    history.forEach(h => {
-
-      if (h.kind === 'diff') renderDiffBlock(h.fileName, h.action, h.text);
-      else if (h.kind === 'html') renderResponse(h.html);
-      else renderLine(h.text, h.cls);
-    });
+    renderHistory();
     renderChips();
     updateToolbar();
     promptEl.value = draftText;
